@@ -1,19 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import '../services/fandom_service.dart';
 import '../models/fandom_model.dart';
 
 class FandomScreen extends StatefulWidget {
   final String categoryId;
   final String categoryName;
-  final VoidCallback onBack;
 
   const FandomScreen({
     super.key,
     required this.categoryId,
     required this.categoryName,
-    required this.onBack,
   });
 
   @override
@@ -89,7 +88,7 @@ class _FandomScreenState extends State<FandomScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black,
+      color: Color(0xFF121212),
       child: Container(
         width: double.infinity,
         height: double.infinity,
@@ -115,7 +114,7 @@ class _FandomScreenState extends State<FandomScreen> {
         children: [
           // Back button with coupled text
           GestureDetector(
-            onTap: () => widget.onBack(),
+            onTap: () => context.pop(),
             child: ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
                 begin: Alignment.topLeft,

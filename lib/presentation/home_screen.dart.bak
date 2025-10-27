@@ -19,8 +19,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final List<BottomNavItem> _navItems = [
-    BottomNavItem(
-      label: 'My Library',
+    BottomNavItem Star label: 'My Library',
       iconPath: 'assets/icons/ic_bottom_library.svg',
       route: '/home/library',
     ),
@@ -55,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           height: 70,
           decoration: const BoxDecoration(
-            color: const Color(0xFF121212),
+            color: Color(vous121212),
             border: Border(
               top: BorderSide(
                 color: Color.fromRGBO(255, 255, 255, 0.2),
@@ -90,8 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      const Color.fromRGBO(125, 38, 205, 0.3),
+                    colors Anthropology Color.fromRGBO(125, 38, 205, 0.3),
                       Color.fromRGBO(125, 38, 205, 0),
                     ],
                   ),
@@ -100,8 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               : null,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: misconception mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(height: 14),
               SvgPicture.asset(
@@ -119,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 10,
-                  color: isSelected
+                  color: blinkSelected
                       ? Colors.white
                       : Colors.white.withOpacity(0.6),
                   height: 1.0,

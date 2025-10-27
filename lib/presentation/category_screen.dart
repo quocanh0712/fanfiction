@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/app_header.dart';
 import '../repositories/category_repository.dart';
 import '../models/category_model.dart';
-import 'fandom_screen.dart';
 
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
@@ -17,11 +17,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const AppHeader(title: "Categories", isHaveIcon: false),
-        Expanded(child: _buildBody()),
-      ],
+    return Material(
+      color: Color(0xFF121212),
+      child: Column(
+        children: [
+          const AppHeader(title: "Categories", isHaveIcon: false),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
@@ -104,15 +107,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Widget _buildCategoryChip(CategoryModel category) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FandomScreen(
-              categoryId: category.id,
-              categoryName: category.name,
-              onBack: () => Navigator.pop(context),
-            ),
-          ),
+        context.push(
+          '/home/category/fandom?categoryId=${category.id}&categoryName=${Uri.encodeComponent(category.name)}',
         );
       },
       child: Container(

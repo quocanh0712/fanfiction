@@ -7,21 +7,24 @@ class SearchScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const AppHeader(),
-        Expanded(
-          child: Center(
-            child: Text(
-              'Search Screen',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.white.withOpacity(0.7),
+    return Material(
+      color: Color(0xFF121212),
+      child: Column(
+        children: [
+          const AppHeader(),
+          Expanded(
+            child: Center(
+              child: Text(
+                'Search Screen',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.7),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

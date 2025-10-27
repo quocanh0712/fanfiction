@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
-import 'splash_screen.dart';
 
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
@@ -66,17 +66,7 @@ class _AppInitializerState extends State<AppInitializer>
   }
 
   void _navigateToSplash() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const SplashScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
+    context.go('/');
   }
 
   @override
@@ -90,6 +80,7 @@ class _AppInitializerState extends State<AppInitializer>
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           fit: StackFit.expand,
           children: [
