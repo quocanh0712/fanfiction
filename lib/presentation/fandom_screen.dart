@@ -22,14 +22,36 @@ class FandomScreen extends StatefulWidget {
 
 class _FandomScreenState extends State<FandomScreen> {
   final FandomService _fandomService = FandomService();
+  final TextEditingController _searchController = TextEditingController();
   List<FandomModel> _fandoms = [];
+  List<FandomModel> _filteredFandoms = [];
   bool _isLoading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _loadFandoms();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredFandoms = _fandoms;
+      } else {
+        _filteredFandoms = _fandoms
+            .where((fandom) => fandom.name.toLowerCase().contains(query))
+            .toList();
+      }
+    });
   }
 
   Future<void> _loadFandoms() async {
@@ -44,6 +66,7 @@ class _FandomScreenState extends State<FandomScreen> {
       );
       setState(() {
         _fandoms = fandoms;
+        _filteredFandoms = fandoms;
         _isLoading = false;
       });
     } catch (e) {
@@ -151,12 +174,35 @@ class _FandomScreenState extends State<FandomScreen> {
         child: Row(
           children: [
             const Icon(CupertinoIcons.search, color: Colors.white70, size: 20),
-            // const Icon(Icons.search, color: Colors.white54, size: 20),
             const SizedBox(width: 12),
-            Text(
-              'Search',
-              style: GoogleFonts.poppins(fontSize: 14, color: Colors.white70),
+            Expanded(
+              child: TextField(
+                cursorColor: Colors.white,
+                controller: _searchController,
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search',
+                  hintStyle: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white70,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
             ),
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                },
+                child: const Icon(
+                  CupertinoIcons.clear_circled_solid,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+              ),
           ],
         ),
       ),
@@ -186,7 +232,7 @@ class _FandomScreenState extends State<FandomScreen> {
       );
     }
 
-    if (_fandoms.isEmpty) {
+    if (_filteredFandoms.isEmpty) {
       return Center(
         child: Text(
           'No fandoms available',
@@ -200,13 +246,13 @@ class _FandomScreenState extends State<FandomScreen> {
 
     return ListView.separated(
       padding: EdgeInsets.zero,
-      itemCount: _fandoms.length,
+      itemCount: _filteredFandoms.length,
       separatorBuilder: (context, index) => Padding(
         padding: const EdgeInsets.only(left: 16),
         child: const Divider(color: Color(0xFF2A2A2A), thickness: 1, height: 1),
       ),
       itemBuilder: (context, index) {
-        return _buildFandomItem(_fandoms[index]);
+        return _buildFandomItem(_filteredFandoms[index]);
       },
     );
   }
