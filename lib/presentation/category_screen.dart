@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/app_header.dart';
 import '../repositories/category_repository.dart';
 import '../models/category_model.dart';
+import 'fandom_screen.dart';
 
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
@@ -31,48 +32,43 @@ class _CategoryScreenState extends State<CategoryScreen> {
       );
     }
 
-    if (_categoryRepository.error != null) {
+    // Check error and show chip style if has error and no categories
+    final categories = _categoryRepository.categories;
+    if (_categoryRepository.error != null && categories.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Colors.red.withOpacity(0.7),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Error loading categories',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _categoryRepository.error!,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.7),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white),
+                  borderRadius: BorderRadius.circular(100),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  _categoryRepository.refreshCategories();
-                  setState(() {});
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7d26cd),
-                  foregroundColor: Colors.white,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Error loading categories',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('Retry'),
               ),
             ],
           ),
@@ -80,7 +76,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       );
     }
 
-    final categories = _categoryRepository.categories;
     if (categories.isEmpty) {
       return Center(
         child: Text(
@@ -93,66 +88,47 @@ class _CategoryScreenState extends State<CategoryScreen> {
       );
     }
 
-    return ListView.builder(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        return _buildCategoryCard(category);
-      },
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 15,
+        alignment: WrapAlignment.center,
+        children: categories.map((category) {
+          return _buildCategoryChip(category);
+        }).toList(),
+      ),
     );
   }
 
-  Widget _buildCategoryCard(CategoryModel category) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF37393f), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF7d26cd).withOpacity(0.3),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Icon(
-              Icons.category,
-              color: Color(0xFF7d26cd),
-              size: 24,
+  Widget _buildCategoryChip(CategoryModel category) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FandomScreen(
+              categoryId: category.id,
+              categoryName: category.name,
+              onBack: () => Navigator.pop(context),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  category.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  category.encodedName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          category.name,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
           ),
-          const Icon(Icons.chevron_right, color: Colors.white54),
-        ],
+        ),
       ),
     );
   }

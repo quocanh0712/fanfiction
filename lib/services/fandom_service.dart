@@ -33,11 +33,13 @@ class FandomService {
   }
 
   /// Get fandoms by category
+  ///
+  /// Example: GET https://fandom-gg.onrender.com/fandoms?category_id=cat_cfe6f40a31c6
   Future<List<FandomModel>> getFandomsByCategory(String categoryId) async {
     try {
       final response = await _apiClient.dio.get(
         '/fandoms',
-        queryParameters: {'category': categoryId},
+        queryParameters: {'category_id': categoryId},
       );
 
       if (response.statusCode == 200) {
