@@ -55,13 +55,15 @@ class AppRouter {
             // Library tab
             GoRoute(
               path: '/home/library',
-              builder: (context, state) => const LibraryScreen(),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: const LibraryScreen()),
             ),
 
             // Category tab
             GoRoute(
               path: '/home/category',
-              builder: (context, state) => const CategoryScreen(),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: const CategoryScreen()),
               routes: [
                 // Fandom detail page
                 GoRoute(
@@ -85,19 +87,22 @@ class AppRouter {
             // New tab
             GoRoute(
               path: '/home/new',
-              builder: (context, state) => const NewScreen(),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: const NewScreen()),
             ),
 
             // Search tab
             GoRoute(
               path: '/home/search',
-              builder: (context, state) => const SearchScreen(),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: const SearchScreen()),
             ),
 
             // Settings tab
             GoRoute(
               path: '/home/settings',
-              builder: (context, state) => const SettingsScreen(),
+              pageBuilder: (context, state) =>
+                  NoTransitionPage(child: const SettingsScreen()),
             ),
           ],
         ),
