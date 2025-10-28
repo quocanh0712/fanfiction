@@ -25,6 +25,8 @@ class WorkScreen extends StatefulWidget {
 class _WorkScreenState extends State<WorkScreen> {
   final WorkService _workService = WorkService();
   final TextEditingController _searchController = TextEditingController();
+  final Map<String, bool> _expandedTags =
+      {}; // Track expanded state for each work
   List<WorkModel> _works = [];
   List<WorkModel> _filteredWorks = [];
   bool _isLoading = false;
@@ -102,6 +104,18 @@ class _WorkScreenState extends State<WorkScreen> {
             _buildHeader(),
             const SizedBox(height: 5),
             _buildSearchBar(),
+            const SizedBox(height: 8),
+            // Story count centered
+            Center(
+              child: Text(
+                _formatStoryCount(widget.storyCount),
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             Expanded(child: _buildBody()),
           ],
@@ -156,26 +170,7 @@ class _WorkScreenState extends State<WorkScreen> {
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatStoryCount(widget.storyCount),
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
-                      ),
                     ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    // TODO: Implement filter
-                  },
-                  icon: const Icon(
-                    Icons.filter_list,
-                    color: Colors.white,
-                    size: 24,
                   ),
                 ),
               ],
@@ -292,7 +287,7 @@ class _WorkScreenState extends State<WorkScreen> {
             Text(
               work.title,
               style: GoogleFonts.poppins(
-                fontSize: 16,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -301,16 +296,7 @@ class _WorkScreenState extends State<WorkScreen> {
             ),
             const SizedBox(height: 8),
             // Tags
-            if (work.tags.isNotEmpty)
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  ...work.tags
-                      .take(work.tags.length)
-                      .map((tag) => _buildPillTag(tag)),
-                ],
-              ),
+            if (work.tags.isNotEmpty) _buildTagsSection(work),
             if (work.tags.isNotEmpty) const SizedBox(height: 12),
             // Summary
             Text(
@@ -369,6 +355,55 @@ class _WorkScreenState extends State<WorkScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTagsSection(WorkModel work) {
+    final isExpanded = _expandedTags[work.id] ?? false;
+    final tagsCount = work.tags.length;
+
+    if (tagsCount <= 1) {
+      // Chỉ có 1 tag hoặc ít hơn, hiển thị trực tiếp
+      return Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: work.tags.map((tag) => _buildPillTag(tag)).toList(),
+      );
+    }
+
+    // Nhiều hơn 1 tag, hiển thị expandable với animation
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: isExpanded
+            ? [
+                // Đã mở rộng: hiển thị tất cả tags + nút collapse
+                ...work.tags.map((tag) => _buildPillTag(tag)),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _expandedTags[work.id] = false;
+                    });
+                  },
+                  child: _buildPillTag('Show less'),
+                ),
+              ]
+            : [
+                // Chưa mở rộng: hiển thị tag đầu tiên + nút "and X more"
+                _buildPillTag(work.tags[0]),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _expandedTags[work.id] = true;
+                    });
+                  },
+                  child: _buildPillTag('and ${tagsCount - 1} more...'),
+                ),
+              ],
       ),
     );
   }
