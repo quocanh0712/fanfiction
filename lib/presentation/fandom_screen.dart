@@ -128,12 +128,12 @@ class _FandomScreenState extends State<FandomScreen> {
               blendMode: BlendMode.srcIn,
               child: Row(
                 children: [
-                  const Icon(Icons.chevron_left, color: Colors.white, size: 24),
+                  const Icon(Icons.chevron_left, color: Colors.white, size: 34),
                   const SizedBox(width: 4),
                   Text(
                     'Categories',
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
                     ),
@@ -260,7 +260,7 @@ class _FandomScreenState extends State<FandomScreen> {
     return InkWell(
       onTap: () {
         context.push(
-          '/home/category/fandom/work?categoryName=${Uri.encodeComponent(widget.categoryName)}&fandomName=${Uri.encodeComponent(fandom.name)}&fandomId=${Uri.encodeComponent(fandom.id)}',
+          '/home/category/fandom/work?categoryName=${Uri.encodeComponent(widget.categoryName)}&fandomName=${Uri.encodeComponent(fandom.name)}&fandomId=${Uri.encodeComponent(fandom.id)}&storyCount=${fandom.count ?? 0}',
         );
       },
       child: Padding(

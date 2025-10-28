@@ -2,6 +2,7 @@ class WorkStats {
   final String? language;
   final String? words;
   final String? chapters;
+  final String? collections;
   final String? comments;
   final String? kudos;
   final String? bookmarks;
@@ -11,6 +12,7 @@ class WorkStats {
     this.language,
     this.words,
     this.chapters,
+    this.collections,
     this.comments,
     this.kudos,
     this.bookmarks,
@@ -22,6 +24,7 @@ class WorkStats {
       language: json['Language'] as String?,
       words: json['Words'] as String?,
       chapters: json['Chapters'] as String?,
+      collections: json['Collections'] as String?,
       comments: json['Comments'] as String?,
       kudos: json['Kudos'] as String?,
       bookmarks: json['Bookmarks'] as String?,
@@ -34,6 +37,7 @@ class WorkStats {
       'Language': language,
       'Words': words,
       'Chapters': chapters,
+      'Collections': collections,
       'Comments': comments,
       'Kudos': kudos,
       'Bookmarks': bookmarks,

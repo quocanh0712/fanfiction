@@ -20,113 +20,114 @@ class AppRouter {
   static const String search = '/home/search';
   static const String settings = '/home/settings';
 
-  static GoRouter get router {
-    return GoRouter(
-      initialLocation: '/app-init',
-      routes: [
-        GoRoute(
-          path: '/app-init',
-          builder: (context, state) => const AppInitializer(),
-        ),
-        GoRoute(
-          path: splash,
-          builder: (context, state) => const SplashScreen(),
-        ),
-        ShellRoute(
-          builder: (context, state, child) {
-            // Get selected tab from state
-            final location = state.uri.path;
-            int selectedIndex = 0;
+  static late final GoRouter router = GoRouter(
+    initialLocation: '/app-init',
+    routes: [
+      GoRoute(
+        path: '/app-init',
+        builder: (context, state) => const AppInitializer(),
+      ),
+      GoRoute(path: splash, builder: (context, state) => const SplashScreen()),
+      ShellRoute(
+        builder: (context, state, child) {
+          // Get selected tab from state
+          final location = state.uri.path;
+          int selectedIndex = 0;
 
-            if (location.startsWith('/home/library') || location == '/home') {
-              selectedIndex = 0;
-            } else if (location.startsWith('/home/category')) {
-              selectedIndex = 1;
-            } else if (location.startsWith('/home/new')) {
-              selectedIndex = 2;
-            } else if (location.startsWith('/home/search')) {
-              selectedIndex = 3;
-            } else if (location.startsWith('/home/settings')) {
-              selectedIndex = 4;
-            }
+          if (location.startsWith('/home/library') || location == '/home') {
+            selectedIndex = 0;
+          } else if (location.startsWith('/home/category')) {
+            selectedIndex = 1;
+          } else if (location.startsWith('/home/new')) {
+            selectedIndex = 2;
+          } else if (location.startsWith('/home/search')) {
+            selectedIndex = 3;
+          } else if (location.startsWith('/home/settings')) {
+            selectedIndex = 4;
+          }
 
-            return HomeScreen(selectedIndex: selectedIndex, child: child);
-          },
-          routes: [
-            // Library tab
-            GoRoute(
-              path: '/home/library',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: const LibraryScreen()),
-            ),
+          return HomeScreen(selectedIndex: selectedIndex, child: child);
+        },
+        routes: [
+          // Library tab
+          GoRoute(
+            path: '/home/library',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(child: const LibraryScreen()),
+          ),
 
-            // Category tab
-            GoRoute(
-              path: '/home/category',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: const CategoryScreen()),
-              routes: [
-                // Fandom detail page
-                GoRoute(
-                  path: 'fandom',
-                  builder: (context, state) {
-                    final categoryId =
-                        state.uri.queryParameters['categoryId'] ?? '';
-                    // Go_router auto-decodes query parameters, so get directly
-                    final categoryName =
-                        state.uri.queryParameters['categoryName'] ?? '';
+          // Category tab
+          GoRoute(
+            path: '/home/category',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(child: const CategoryScreen()),
+            routes: [
+              // Fandom detail page
+              GoRoute(
+                path: 'fandom',
+                builder: (context, state) {
+                  final categoryId =
+                      state.uri.queryParameters['categoryId'] ?? '';
+                  // Go_router auto-decodes query parameters, so get directly
+                  final categoryName =
+                      state.uri.queryParameters['categoryName'] ?? '';
 
-                    return FandomScreen(
-                      categoryId: categoryId,
-                      categoryName: categoryName,
-                    );
-                  },
-                  routes: [
-                    GoRoute(
-                      path: 'work',
-                      builder: (context, state) {
-                        final categoryName =
-                            state.uri.queryParameters['categoryName'] ?? '';
-                        final fandomName =
-                            state.uri.queryParameters['fandomName'] ?? '';
-                        final fandomId =
-                            state.uri.queryParameters['fandomId'] ?? '';
+                  return FandomScreen(
+                    categoryId: categoryId,
+                    categoryName: categoryName,
+                  );
+                },
+                routes: [
+                  GoRoute(
+                    path: 'work',
+                    builder: (context, state) {
+                      final categoryName =
+                          state.uri.queryParameters['categoryName'] ?? '';
+                      final fandomName =
+                          state.uri.queryParameters['fandomName'] ?? '';
+                      final fandomId =
+                          state.uri.queryParameters['fandomId'] ?? '';
+                      final storyCount =
+                          int.tryParse(
+                            state.uri.queryParameters['storyCount'] ?? '0',
+                          ) ??
+                          0;
 
-                        return WorkScreen(
-                          categoryName: categoryName,
-                          fandomName: fandomName,
-                          fandomId: fandomId,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                      return WorkScreen(
+                        categoryName: categoryName,
+                        fandomName: fandomName,
+                        fandomId: fandomId,
+                        storyCount: storyCount,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
 
-            // New tab
-            GoRoute(
-              path: '/home/new',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: const NewScreen()),
-            ),
+          // New tab
+          GoRoute(
+            path: '/home/new',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(child: const NewScreen()),
+          ),
 
-            // Search tab
-            GoRoute(
-              path: '/home/search',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: const SearchScreen()),
-            ),
+          // Search tab
+          GoRoute(
+            path: '/home/search',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(child: const SearchScreen()),
+          ),
 
-            // Settings tab
-            GoRoute(
-              path: '/home/settings',
-              pageBuilder: (context, state) =>
-                  NoTransitionPage(child: const SettingsScreen()),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+          // Settings tab
+          GoRoute(
+            path: '/home/settings',
+            pageBuilder: (context, state) =>
+                NoTransitionPage(child: const SettingsScreen()),
+          ),
+        ],
+      ),
+    ],
+  );
 }

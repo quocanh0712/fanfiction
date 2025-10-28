@@ -8,12 +8,14 @@ class WorkScreen extends StatefulWidget {
   final String categoryName;
   final String fandomName;
   final String fandomId;
+  final int storyCount;
 
   const WorkScreen({
     super.key,
     required this.categoryName,
     required this.fandomName,
     required this.fandomId,
+    required this.storyCount,
   });
 
   @override
@@ -56,6 +58,14 @@ class _WorkScreenState extends State<WorkScreen> {
             .toList();
       }
     });
+  }
+
+  String _formatStoryCount(int count) {
+    if (count >= 1000) {
+      final kCount = (count / 1000).floor();
+      return '${kCount}k stories';
+    }
+    return '$count stories';
   }
 
   Future<void> _loadWorks() async {
@@ -122,31 +132,53 @@ class _WorkScreenState extends State<WorkScreen> {
               blendMode: BlendMode.srcIn,
               child: Row(
                 children: [
-                  const Icon(Icons.chevron_left, color: Colors.white, size: 24),
-                  const SizedBox(width: 4),
-                  Text(
-                    "Back",
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
-                  ),
+                  const Icon(Icons.chevron_left, color: Colors.white, size: 34),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-          // Title
+          // Title row with story count and filter icon
           Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              widget.fandomName,
-              style: GoogleFonts.poppins(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.fandomName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatStoryCount(widget.storyCount),
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    // TODO: Implement filter
+                  },
+                  icon: const Icon(
+                    Icons.filter_list,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -252,7 +284,7 @@ class _WorkScreenState extends State<WorkScreen> {
         // Navigate to work details
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -260,26 +292,100 @@ class _WorkScreenState extends State<WorkScreen> {
             Text(
               work.title,
               style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            // Author
-            Text(
-              work.author,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                color: Colors.white.withOpacity(0.7),
+            const SizedBox(height: 8),
+            // Tags
+            if (work.tags.isNotEmpty)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  ...work.tags
+                      .take(work.tags.length)
+                      .map((tag) => _buildPillTag(tag)),
+                ],
               ),
-              maxLines: 1,
+            if (work.tags.isNotEmpty) const SizedBox(height: 12),
+            // Summary
+            Text(
+              work.summary,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withOpacity(0.9),
+              ),
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 12),
+            // Stats
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (work.stats.language != null)
+                  _buildPillTag(work.stats.language!),
+                if (work.stats.chapters != null)
+                  _buildPillTag(work.stats.chapters!),
+                if (work.stats.words != null) _buildPillTag(work.stats.words!),
+                if (work.stats.collections != null)
+                  _buildPillTag(work.stats.collections!),
+                if (work.stats.comments != null)
+                  _buildPillTag(work.stats.comments!),
+                if (work.stats.kudos != null) _buildPillTag(work.stats.kudos!),
+                if (work.stats.hits != null) _buildPillTag(work.stats.hits!),
+                if (work.stats.bookmarks != null)
+                  _buildPillTag(work.stats.bookmarks!),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Author
+            Row(
+              children: [
+                Text(
+                  'by',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+                SizedBox(width: 5),
+                Text(
+                  work.author,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPillTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white, width: 0.5),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
         ),
       ),
     );
