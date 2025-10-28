@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import '../presentation/splash_screen.dart';
 import '../presentation/home_screen.dart';
 import '../presentation/fandom_screen.dart';
+import '../presentation/work_screen.dart';
 import '../presentation/library_screen.dart';
 import '../presentation/category_screen.dart';
 import '../presentation/new_screen.dart';
@@ -80,6 +81,25 @@ class AppRouter {
                       categoryName: categoryName,
                     );
                   },
+                  routes: [
+                    GoRoute(
+                      path: 'work',
+                      builder: (context, state) {
+                        final categoryName =
+                            state.uri.queryParameters['categoryName'] ?? '';
+                        final fandomName =
+                            state.uri.queryParameters['fandomName'] ?? '';
+                        final fandomId =
+                            state.uri.queryParameters['fandomId'] ?? '';
+
+                        return WorkScreen(
+                          categoryName: categoryName,
+                          fandomName: fandomName,
+                          fandomId: fandomId,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

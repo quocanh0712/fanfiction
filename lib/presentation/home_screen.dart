@@ -50,16 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: Container(
-          key: ValueKey<int>(widget.selectedIndex),
-          child: widget.child,
-        ),
-      ),
+      body: widget.child,
       bottomNavigationBar: SafeArea(
         child: Container(
           height: 70,

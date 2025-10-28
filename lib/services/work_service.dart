@@ -9,89 +9,51 @@ class WorkService {
     _apiClient.init();
   }
 
+  /// Get works by fandom ID with pagination
+  ///
+  /// Parameters:
+  /// - [fandomId]: The fandom ID (required)
+  /// - [page]: Page number (default: 1)
+  ///
+  /// Example: GET https://fandom-gg.onrender.com/works?fandom_id=fnd_7a72626adc71&page=1
+  Future<List<WorkModel>> getWorksByFandom(
+    String fandomId, {
+    int page = 1,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get(
+        '/works',
+        queryParameters: {'fandom_id': fandomId, 'page': page},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => WorkModel.fromJson(json)).toList();
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// Get all works
   ///
-  /// Returns a list of all works
   /// Example: GET https://fandom-gg.onrender.com/works
-  Future<List<WorkModel>> getAllWorks({int? page, int? limit}) async {
+  Future<List<WorkModel>> getAllWorks({int page = 1}) async {
     try {
-      final Map<String, dynamic> queryParams = {};
-      if (page != null) queryParams['page'] = page;
-      if (limit != null) queryParams['limit'] = limit;
-
       final response = await _apiClient.dio.get(
         '/works',
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+        queryParameters: {'page': page},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => WorkModel.fromJson(json)).toList();
-      } else {
-        throw DioException(
-          requestOptions: response.requestOptions,
-          response: response,
-          type: DioExceptionType.badResponse,
-        );
-      }
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// Get work by ID
-  Future<WorkModel?> getWorkById(String workId) async {
-    try {
-      final response = await _apiClient.dio.get('/works/$workId');
-
-      if (response.statusCode == 200) {
-        return WorkModel.fromJson(response.data);
-      } else if (response.statusCode == 404) {
-        return null;
-      } else {
-        throw DioException(
-          requestOptions: response.requestOptions,
-          response: response,
-          type: DioExceptionType.badResponse,
-        );
-      }
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// Get works by fandom
-  Future<List<WorkModel>> getWorksByFandom(String fandomId) async {
-    try {
-      final response = await _apiClient.dio.get(
-        '/works',
-        queryParameters: {'fandom': fandomId},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        return data.map((json) => WorkModel.fromJson(json)).toList();
-      } else {
-        throw DioException(
-          requestOptions: response.requestOptions,
-          response: response,
-          type: DioExceptionType.badResponse,
-        );
-      }
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// Get work content by ID
-  Future<String?> getWorkContent(String workId) async {
-    try {
-      final response = await _apiClient.dio.get('/works/$workId/content');
-
-      if (response.statusCode == 200) {
-        return response.data['content'] as String?;
-      } else if (response.statusCode == 404) {
-        return null;
       } else {
         throw DioException(
           requestOptions: response.requestOptions,
@@ -105,11 +67,11 @@ class WorkService {
   }
 
   /// Search works
-  Future<List<WorkModel>> searchWorks(String query) async {
+  Future<List<WorkModel>> searchWorks(String query, {int page = 1}) async {
     try {
       final response = await _apiClient.dio.get(
         '/works',
-        queryParameters: {'search': query},
+        queryParameters: {'search': query, 'page': page},
       );
 
       if (response.statusCode == 200) {
