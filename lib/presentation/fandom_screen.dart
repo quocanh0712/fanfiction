@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../services/fandom_service.dart';
 import '../models/fandom_model.dart';
+import '../widgets/sticky_header.dart';
 
 class FandomScreen extends StatefulWidget {
   final String categoryId;
@@ -49,18 +50,6 @@ class _FandomScreenState extends State<FandomScreen> {
     setState(() {
       _scrollOffset = _scrollController.offset;
     });
-  }
-
-  bool _showSearchBar() {
-    return _scrollOffset < 50;
-  }
-
-  bool _showBigTitle() {
-    return _scrollOffset < 150;
-  }
-
-  bool _showSmallTitle() {
-    return _scrollOffset >= 150;
   }
 
   void _onSearchChanged() {
@@ -118,102 +107,17 @@ class _FandomScreenState extends State<FandomScreen> {
         child: Column(
           children: [
             SizedBox(height: 50),
-            _buildHeader(),
-            if (_showSearchBar()) ...[
-              const SizedBox(height: 5),
-              _buildSearchBar(),
-            ],
+            StickyHeader(
+              title: widget.categoryName,
+              backButtonText: 'Categories',
+              scrollOffset: _scrollOffset,
+              onBackTap: () => context.pop(),
+              searchBar: _buildSearchBar(),
+            ),
             const SizedBox(height: 10),
             Expanded(child: _buildBody()),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stack để title có thể nằm chính giữa màn hình
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              // Back button với Categories ở bên trái (ẩn Categories khi showSmallTitle)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: GestureDetector(
-                  onTap: () => context.pop(),
-                  child: ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF334DCC),
-                        Color(0xFF4F4CBF),
-                        Color(0xFF9722C9),
-                      ],
-                    ).createShader(bounds),
-                    blendMode: BlendMode.srcIn,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.chevron_left,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        if (!_showSmallTitle()) ...[
-                          Text(
-                            'Categories',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Small title ở chính giữa màn hình với fade animation
-              AnimatedOpacity(
-                opacity: _showSmallTitle() ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: _showSmallTitle()
-                    ? Text(
-                        widget.categoryName,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-          // Big title ẩn khi scroll >= 150
-          if (_showBigTitle()) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Text(
-                widget.categoryName,
-                style: GoogleFonts.poppins(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }

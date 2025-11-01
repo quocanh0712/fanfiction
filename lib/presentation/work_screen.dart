@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../services/work_service.dart';
 import '../models/work_model.dart';
+import '../widgets/sticky_header.dart';
 
 class WorkScreen extends StatefulWidget {
   final String categoryName;
@@ -25,24 +26,35 @@ class WorkScreen extends StatefulWidget {
 class _WorkScreenState extends State<WorkScreen> {
   final WorkService _workService = WorkService();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final Map<String, bool> _expandedTags =
       {}; // Track expanded state for each work
   List<WorkModel> _works = [];
   List<WorkModel> _filteredWorks = [];
   bool _isLoading = false;
   String? _error;
+  double _scrollOffset = 0.0;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
     _loadWorks();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    setState(() {
+      _scrollOffset = _scrollController.offset;
+    });
   }
 
   void _onSearchChanged() {
@@ -101,22 +113,14 @@ class _WorkScreenState extends State<WorkScreen> {
         child: Column(
           children: [
             const SizedBox(height: 50),
-            _buildHeader(),
-            const SizedBox(height: 5),
-            _buildSearchBar(),
-            const SizedBox(height: 8),
-            // Story count centered
-            Center(
-              child: Text(
-                _formatStoryCount(widget.storyCount),
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
+            StickyHeader(
+              title: widget.fandomName,
+              backButtonText: widget.categoryName,
+              scrollOffset: _scrollOffset,
+              onBackTap: () => context.pop(),
+              searchBar: _buildSearchBar(),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 5),
             Expanded(child: _buildBody()),
           ],
         ),
@@ -124,103 +128,68 @@ class _WorkScreenState extends State<WorkScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Back button with coupled text
-          GestureDetector(
-            onTap: () => context.pop(),
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF334DCC),
-                  Color(0xFF4F4CBF),
-                  Color(0xFF9722C9),
-                ],
-              ).createShader(bounds),
-              blendMode: BlendMode.srcIn,
-              child: Row(
-                children: [
-                  const Icon(Icons.chevron_left, color: Colors.white, size: 34),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Title row with story count and filter icon
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.fandomName,
-                        style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade600,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            const Icon(Icons.search, color: Colors.white70, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                cursorColor: Colors.white,
-                controller: _searchController,
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search',
-                  hintStyle: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.white70,
+      child: Column(
+        children: [
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade600,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.search, color: Colors.white70, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    cursorColor: Colors.white,
+                    controller: _searchController,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search',
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.white70,
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
                 ),
+                if (_searchController.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                    },
+                    child: const Icon(
+                      Icons.clear,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8),
+          Center(
+            child: Text(
+              _formatStoryCount(widget.storyCount),
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.7),
               ),
             ),
-            if (_searchController.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _searchController.clear();
-                },
-                child: const Icon(Icons.clear, color: Colors.white70, size: 20),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -261,6 +230,7 @@ class _WorkScreenState extends State<WorkScreen> {
     }
 
     return ListView.separated(
+      controller: _scrollController,
       padding: EdgeInsets.zero,
       itemCount: _filteredWorks.length,
       separatorBuilder: (context, index) => Padding(
