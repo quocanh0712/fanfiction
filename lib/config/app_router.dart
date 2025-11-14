@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../presentation/splash_screen.dart';
 import '../presentation/home_screen.dart';
@@ -9,6 +10,8 @@ import '../presentation/new_screen.dart';
 import '../presentation/search_screen.dart';
 import '../presentation/settings_screen.dart';
 import '../presentation/app_initializer.dart';
+import '../presentation/read_story_screen.dart';
+import '../models/work_content_model.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -127,6 +130,29 @@ class AppRouter {
                 NoTransitionPage(child: const SettingsScreen()),
           ),
         ],
+      ),
+      // Read Story Screen (outside ShellRoute to hide bottom nav)
+      GoRoute(
+        path: '/read-story',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          if (extra == null) {
+            // Fallback - should not happen
+            return const Scaffold(
+              body: Center(child: Text('Error: No chapter data')),
+            );
+          }
+
+          final chapter = extra['chapter'] as ChapterModel;
+          final workTitle = extra['workTitle'] as String? ?? '';
+          final author = extra['author'] as String? ?? '';
+
+          return ReadStoryScreen(
+            chapter: chapter,
+            workTitle: workTitle,
+            author: author,
+          );
+        },
       ),
     ],
   );

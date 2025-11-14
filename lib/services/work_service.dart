@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/work_model.dart';
+import '../models/work_content_model.dart';
 import 'api_client.dart';
 
 class WorkService {
@@ -77,6 +78,33 @@ class WorkService {
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => WorkModel.fromJson(json)).toList();
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// Get work content by work ID
+  ///
+  /// Parameters:
+  /// - [workId]: The work ID (required)
+  ///
+  /// Example: GET https://fandom-gg.onrender.com/work/content?work_id=wrk_9ad21178eac1
+  Future<WorkContentModel> getWorkContent(String workId) async {
+    try {
+      final response = await _apiClient.dio.get(
+        '/work/content',
+        queryParameters: {'work_id': workId},
+      );
+
+      if (response.statusCode == 200) {
+        return WorkContentModel.fromJson(response.data as Map<String, dynamic>);
       } else {
         throw DioException(
           requestOptions: response.requestOptions,

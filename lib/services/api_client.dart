@@ -87,9 +87,13 @@ class CurlInterceptor extends Interceptor {
     final curlCommand = _buildCurlCommand(options);
     final postmanJson = _buildPostmanCollection(options);
 
-    buffer.writeln('\n💻 CURL Command (Copy to Postman):');
+    buffer.writeln('\n💻 CURL Command (Copy to Terminal or Postman):');
     buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     buffer.writeln(curlCommand);
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln('\n📝 Single-line CURL (for Postman import):');
+    buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    buffer.writeln(_buildSingleLineCurl(options));
     buffer.writeln('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     buffer.writeln('\n📋 Postman Collection JSON:');
@@ -105,7 +109,7 @@ class CurlInterceptor extends Interceptor {
   String _buildCurlCommand(RequestOptions options) {
     final buffer = StringBuffer();
 
-    // Add URL (with query params if any)
+    // Build full URL with query params
     String url = '${options.baseUrl}${options.path}';
     if (options.queryParameters.isNotEmpty) {
       final queryString = options.queryParameters.entries
@@ -117,39 +121,35 @@ class CurlInterceptor extends Interceptor {
       url = '$url?$queryString';
     }
 
-    // Build simple curl command that Postman can import
-    buffer.write("curl -X ${options.method}");
+    // Start curl command
+    buffer.writeln("curl -X ${options.method.toUpperCase()} \\");
 
-    // Add headers (skip Content-Type if it's application/json, Postman adds it automatically)
+    // Add headers
     options.headers.forEach((key, value) {
-      // Skip Content-Type header for cleaner Postman import
-      if (key.toLowerCase() != 'content-type') {
-        buffer.write(" -H '${key}: ${value}'");
-      }
+      // Escape single quotes in header values
+      final escapedValue = value.toString().replaceAll("'", "'\"'\"'");
+      buffer.writeln("  -H '$key: $escapedValue' \\");
     });
 
-    // Add URL
-    buffer.write(" '$url'");
-
-    // Add data for POST/PUT/PATCH
-    if (options.data != null &&
-        options.method != 'GET' &&
-        options.data is! FormData) {
+    // Add request body for POST/PUT/PATCH/DELETE
+    if (options.data != null && options.data is! FormData) {
       String dataString;
       if (options.data is Map || options.data is List) {
-        // Convert to JSON string
+        // Properly convert to JSON string
         try {
-          dataString = options.data
-              .toString()
-              .replaceAll(', ', ',')
-              .replaceAll(': ', ':')
-              .replaceAll('\'', '"');
+          dataString = const JsonEncoder.withIndent('').convert(options.data);
+          // Escape single quotes and newlines for shell
+          dataString = dataString
+              .replaceAll("'", "'\"'\"'")
+              .replaceAll('\n', '\\n')
+              .replaceAll('\r', '\\r');
         } catch (e) {
           dataString = options.data.toString();
         }
-        buffer.write(" -d '$dataString'");
+        buffer.writeln("  -d '$dataString' \\");
       } else if (options.data is String) {
-        buffer.write(" -d '${options.data}'");
+        final escapedData = (options.data as String).replaceAll("'", "'\"'\"'");
+        buffer.writeln("  -d '$escapedData' \\");
       }
     }
 
@@ -157,12 +157,66 @@ class CurlInterceptor extends Interceptor {
     if (options.data is FormData) {
       final formData = options.data as FormData;
       for (var field in formData.fields) {
-        buffer.write(" -d '${field.key}=${field.value}'");
+        final escapedValue = field.value.replaceAll("'", "'\"'\"'");
+        buffer.writeln("  -F '${field.key}=$escapedValue' \\");
       }
       for (var file in formData.files) {
-        buffer.write(" -F '${file.key}=@<filepath>'");
+        buffer.writeln("  -F '${file.key}=@<filepath>' \\");
       }
     }
+
+    // Add URL (last, no backslash)
+    buffer.write("  '$url'");
+
+    return buffer.toString();
+  }
+
+  String _buildSingleLineCurl(RequestOptions options) {
+    final buffer = StringBuffer();
+
+    // Build full URL
+    String url = '${options.baseUrl}${options.path}';
+    if (options.queryParameters.isNotEmpty) {
+      final queryString = options.queryParameters.entries
+          .map(
+            (e) =>
+                '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}',
+          )
+          .join('&');
+      url = '$url?$queryString';
+    }
+
+    // Start curl command
+    buffer.write("curl -X ${options.method.toUpperCase()}");
+
+    // Add headers
+    options.headers.forEach((key, value) {
+      final escapedValue = value.toString().replaceAll("'", "'\"'\"'");
+      buffer.write(" -H '$key: $escapedValue'");
+    });
+
+    // Add request body
+    if (options.data != null && options.data is! FormData) {
+      String dataString;
+      if (options.data is Map || options.data is List) {
+        try {
+          dataString = const JsonEncoder.withIndent('').convert(options.data);
+          dataString = dataString
+              .replaceAll("'", "'\"'\"'")
+              .replaceAll('\n', '\\n')
+              .replaceAll('\r', '\\r');
+        } catch (e) {
+          dataString = options.data.toString();
+        }
+        buffer.write(" -d '$dataString'");
+      } else if (options.data is String) {
+        final escapedData = (options.data as String).replaceAll("'", "'\"'\"'");
+        buffer.write(" -d '$escapedData'");
+      }
+    }
+
+    // Add URL
+    buffer.write(" '$url'");
 
     return buffer.toString();
   }

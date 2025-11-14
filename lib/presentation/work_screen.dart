@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../services/work_service.dart';
 import '../models/work_model.dart';
 import '../widgets/sticky_header.dart';
+import 'work_detail_bottom_sheet.dart';
 
 class WorkScreen extends StatefulWidget {
   final String categoryName;
@@ -245,8 +246,63 @@ class _WorkScreenState extends State<WorkScreen> {
 
   Widget _buildWorkItem(WorkModel work) {
     return InkWell(
-      onTap: () {
-        // Navigate to work details
+      onTap: () async {
+        if (!context.mounted) return;
+
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black54,
+          builder: (dialogContext) => PopScope(
+            canPop: false,
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFF7d26cd)),
+            ),
+          ),
+        );
+
+        try {
+          final workContent = await _workService.getWorkContent(work.id);
+
+          // Close loading dialog - use rootNavigator to ensure it closes
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+
+          // Wait a bit to ensure dialog is fully closed
+          await Future.delayed(const Duration(milliseconds: 200));
+
+          // Show bottom sheet using root navigator to display above bottom nav bar
+          if (context.mounted) {
+            // Get root navigator context to show bottom sheet above everything
+            final rootContext = Navigator.of(
+              context,
+              rootNavigator: true,
+            ).context;
+            if (rootContext.mounted) {
+              showModalBottomSheet(
+                context: rootContext,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) =>
+                    WorkDetailBottomSheet(workContent: workContent),
+              );
+            }
+          }
+        } catch (e) {
+          // Close loading dialog on error - use rootNavigator
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+            // Show error
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error loading work: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
