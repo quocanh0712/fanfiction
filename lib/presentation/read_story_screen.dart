@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/work_content_model.dart';
 
-class ReadStoryScreen extends StatelessWidget {
+class ReadStoryScreen extends StatefulWidget {
   final ChapterModel chapter;
   final String workTitle;
   final String author;
@@ -16,82 +17,164 @@ class ReadStoryScreen extends StatelessWidget {
   });
 
   @override
+  State<ReadStoryScreen> createState() => _ReadStoryScreenState();
+}
+
+class _ReadStoryScreenState extends State<ReadStoryScreen>
+    with SingleTickerProviderStateMixin {
+  bool _showHeader = true;
+  Timer? _hideTimer;
+  late AnimationController _animationController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    // Show header initially
+    _animationController.forward();
+
+    // Auto-hide after 3 seconds
+    _startHideTimer();
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showHeader) {
+        setState(() {
+          _showHeader = false;
+        });
+        _animationController.reverse();
+      }
+    });
+  }
+
+  void _toggleHeader() {
+    setState(() {
+      _showHeader = !_showHeader;
+    });
+
+    if (_showHeader) {
+      _animationController.forward();
+      _startHideTimer();
+    } else {
+      _animationController.reverse();
+      _hideTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Column(
+      body: Stack(
         children: [
-          // Header with close button
-          SizedBox(height: 50,),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(width: 40), // Spacer for centering
-                Expanded(
-                  child: Column(
+          // Content area with tap detection
+          GestureDetector(
+            onTap: _toggleHeader,
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: _showHeader ? 70 : 10,
+                  bottom: 10,
+                ),
+                child: _buildFormattedContent(widget.chapter.content),
+              ),
+            ),
+          ),
+          // Sticky header
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Container(
+                  height: 100,
+                  color: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      // Chapter number
-                      Text(
-                        chapter.title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                      // Title centered with fixed width
+                      Positioned(
+                        top: 50,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: SizedBox(
+                            width:
+                                MediaQuery.of(context).size.width -
+                                32 - // padding left + right
+                                48 - // IconButton width
+                                16, // margin
+                            child: Text(
+                              widget.chapter.title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ),
                       ),
-
+                      // Close button aligned to right and same height as title
+                      Positioned(
+                        top: 37,
+                        right: 0,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => context.pop(),
+                          iconSize: 24,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                // Close button
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => context.pop(),
-                  iconSize: 24,
-                ),
-              ],
-            ),
-          ),
-          // Content area
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
               ),
-              child: _buildFormattedContent(chapter.content),
             ),
           ),
-          // Bottom navigation button
-
         ],
       ),
     );
-  }
-
-  String _extractChapterNumber(String title) {
-    // Extract "Chapter 1" from "Chapter 1: Prologue: A New Journey"
-    if (title.toLowerCase().startsWith('chapter')) {
-      final parts = title.split(':');
-      if (parts.isNotEmpty) {
-        return parts[0].trim();
-      }
-    }
-    return 'Chapter';
-  }
-
-  String _extractChapterTitle(String title) {
-    // Extract title after "Chapter X:" or "Chapter X: Prologue:"
-    if (title.contains(':')) {
-      final parts = title.split(':');
-      if (parts.length >= 2) {
-        // Skip first part (Chapter X) and join the rest
-        return parts.sublist(1).join(':').trim();
-      }
-    }
-    return title;
   }
 
   Widget _buildFormattedContent(String content) {
