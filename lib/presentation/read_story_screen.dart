@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/work_content_model.dart';
 
 class ReadStoryScreen extends StatefulWidget {
@@ -185,7 +187,38 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
               ),
             ),
           ),
+          // FloatingActionButton synchronized with header
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    _showStoryMenuBottomSheet(context);
+                  },
+                  backgroundColor: Colors.grey.shade900,
+                  child: const Icon(Icons.menu, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _showStoryMenuBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _StoryMenuBottomSheet(
+        chapterTitle: widget.chapter.title,
+        currentChapter: 1,
+        totalChapters: 6,
       ),
     );
   }
@@ -332,6 +365,266 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             height: 1.6,
             color: Colors.white,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryMenuBottomSheet extends StatelessWidget {
+  final String chapterTitle;
+  final int currentChapter;
+  final int totalChapters;
+
+  const _StoryMenuBottomSheet({
+    required this.chapterTitle,
+    required this.currentChapter,
+    required this.totalChapters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          height: screenHeight * 0.43,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.center,
+              end: Alignment.center,
+              colors: [
+                Colors.grey.withValues(alpha: 0.1),
+                Colors.black.withValues(alpha: 0.9),
+                Colors.grey.withValues(alpha: 0.1),
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Main content
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Grab handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Title
+                    Center(
+                      child: Container(
+                        width: 200,
+                        child: Text(
+                          chapterTitle,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Chapter info
+                    Center(
+                      child: Text(
+                        'Chapter $currentChapter - ($currentChapter/$totalChapters)',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white24, height: 1),
+                    const SizedBox(height: 16),
+                    // Audio playback section
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Play button
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.play_arrow,
+                                  color: Colors.black,
+                                ),
+                                onPressed: () {
+                                  // TODO: Handle play
+                                },
+                                iconSize: 14,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Text
+                          Text(
+                            "Tap 'Play' to start listening",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // Headphone icon
+                          Image.asset(
+                            "assets/icons/ic_headphone.png",
+                            width: 18,
+                            height: 18,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Menu items
+                    _buildMenuItem(
+                      imagePath: 'assets/icons/ic_chapter_list.png',
+                      title: 'Chapters',
+                      onTap: () {
+                        // TODO: Handle chapters
+                      },
+                    ),
+                    const Divider(color: Colors.white24, height: 1),
+                    _buildMenuItem(
+                      imagePath: 'assets/icons/ic_text_theme.png',
+                      title: 'Themes',
+                      onTap: () {
+                        // TODO: Handle themes
+                      },
+                    ),
+                    const Divider(color: Colors.white24, height: 1),
+                    _buildMenuItem(
+                      svgPath: 'assets/icons/ic_header_robot.svg',
+                      title: 'AI Assistant',
+                      onTap: () {
+                        // TODO: Handle AI Assistant
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              // Progress indicator on the right
+              // Positioned(
+              //   top: 20,
+              //   right: 20,
+              //   child: Container(
+              //     width: 50,
+              //     height: 50,
+              //     decoration: BoxDecoration(
+              //       shape: BoxShape.circle,
+              //       border: Border.all(color: Colors.green, width: 3),
+              //     ),
+              //     child: Stack(
+              //       alignment: Alignment.center,
+              //       children: [
+              //         // Progress arc (simplified - showing 17%)
+              //         SizedBox(
+              //           width: 50,
+              //           height: 50,
+              //           child: CircularProgressIndicator(
+              //             value: 0.17,
+              //             strokeWidth: 3,
+              //             valueColor: const AlwaysStoppedAnimation<Color>(
+              //               Colors.green,
+              //             ),
+              //             backgroundColor: Colors.transparent,
+              //           ),
+              //         ),
+              //         Text(
+              //           '17',
+              //           style: GoogleFonts.poppins(
+              //             fontSize: 14,
+              //             fontWeight: FontWeight.w600,
+              //             color: Colors.white,
+              //           ),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
+              // ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    String? imagePath,
+    String? svgPath,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            if (svgPath != null)
+              SvgPicture.asset(
+                svgPath,
+                width: 24,
+                height: 24,
+                colorFilter: ColorFilter.mode(
+                  Colors.white.withValues(alpha: 0.7),
+                  BlendMode.srcIn,
+                ),
+              )
+            else if (imagePath != null)
+              Image.asset(
+                imagePath,
+                width: 24,
+                height: 24,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
