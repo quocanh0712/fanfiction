@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../models/work_content_model.dart';
 
 class ReadStoryScreen extends StatefulWidget {
@@ -204,7 +205,12 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                     _showStoryMenuBottomSheet(context);
                   },
                   backgroundColor: Colors.grey.shade900,
-                  child: Image.asset("assets/icons/ic_feature.png", width: 20,height: 20, color: Colors.white.withValues(alpha: 0.9),),
+                  child: Image.asset(
+                    "assets/icons/ic_feature.png",
+                    width: 20,
+                    height: 20,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
                 ),
               ),
             ),
@@ -221,6 +227,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => _StoryMenuBottomSheet(
         chapterTitle: widget.chapter.title,
+        chapterContent: widget.chapter.content,
         currentChapter:
             widget.currentChapterIndex + 1, // Convert 0-based to 1-based
         totalChapters: widget.totalChapters,
@@ -376,16 +383,134 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 }
 
-class _StoryMenuBottomSheet extends StatelessWidget {
+class _StoryMenuBottomSheet extends StatefulWidget {
   final String chapterTitle;
+  final String chapterContent;
   final int currentChapter;
   final int totalChapters;
 
   const _StoryMenuBottomSheet({
     required this.chapterTitle,
+    required this.chapterContent,
     required this.currentChapter,
     required this.totalChapters,
   });
+
+  @override
+  State<_StoryMenuBottomSheet> createState() => _StoryMenuBottomSheetState();
+}
+
+class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
+  late FlutterTts flutterTts;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  void _initTts() async {
+    flutterTts = FlutterTts();
+
+    // Wait for TTS to be ready
+    await flutterTts.awaitSpeakCompletion(true);
+
+    flutterTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    });
+
+    flutterTts.setErrorHandler((msg) {
+      print('TTS Error Handler: $msg');
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    });
+
+    flutterTts.setStartHandler(() {
+      if (mounted) {
+        setState(() {
+          _isPlaying = true;
+        });
+      }
+    });
+  }
+
+  Future<void> _toggleSpeech() async {
+    try {
+      if (_isPlaying) {
+        await flutterTts.stop();
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+      } else {
+        // Clean content - remove markdown formatting
+        String cleanContent = widget.chapterContent
+            .replaceAll(RegExp(r'\*\*'), '') // Remove bold markers
+            .replaceAll(RegExp(r'\n+'), ' ') // Replace newlines with spaces
+            .trim();
+
+        if (cleanContent.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No content to read'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Set language - iOS uses format like 'en-US' or 'en'
+        // Try 'en-US' first, fallback to 'en' if that fails
+        try {
+          await flutterTts.setLanguage('en-US');
+        } catch (e) {
+          // If en-US fails, try 'en'
+          try {
+            await flutterTts.setLanguage('en');
+          } catch (e2) {
+            print('Failed to set language: $e2');
+            // Continue anyway, TTS might work with default language
+          }
+        }
+        await flutterTts.setSpeechRate(0.5);
+        await flutterTts.setVolume(1.0);
+        await flutterTts.setPitch(1.0);
+        await flutterTts.speak(cleanContent);
+      }
+    } catch (e) {
+      // Handle error gracefully
+      print('TTS Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('TTS Error: Please rebuild the app. Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    flutterTts.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +564,7 @@ class _StoryMenuBottomSheet extends StatelessWidget {
                       child: Container(
                         width: 200,
                         child: Text(
-                          chapterTitle,
+                          widget.chapterTitle,
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -455,9 +580,9 @@ class _StoryMenuBottomSheet extends StatelessWidget {
                     // Chapter info
                     Center(
                       child: Text(
-                        totalChapters == 1
+                        widget.totalChapters == 1
                             ? 'MainContent'
-                            : 'Chapter $currentChapter - ($currentChapter/$totalChapters)',
+                            : 'Chapter ${widget.currentChapter} - (${widget.currentChapter}/${widget.totalChapters})',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
@@ -470,53 +595,56 @@ class _StoryMenuBottomSheet extends StatelessWidget {
                     const Divider(color: Colors.white24, height: 1),
                     const SizedBox(height: 16),
                     // Audio playback section
-                    Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Play button
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.play_arrow,
-                                  color: Colors.black,
+                    GestureDetector(
+                      onTap: _toggleSpeech,
+                      child: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Play/Pause button
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: IconButton(
+                                  icon: Icon(
+                                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                                    color: Colors.black,
+                                  ),
+                                  onPressed: _toggleSpeech,
+                                  iconSize: 14,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
-                                onPressed: () {
-                                  // TODO: Handle play
-                                },
-                                iconSize: 14,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Text
-                          Text(
-                            "Tap 'Play' to start listening",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
+                            const SizedBox(width: 16),
+                            // Text
+                            Text(
+                              _isPlaying
+                                  ? "Tap to pause"
+                                  : "Tap 'Play' to start listening",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Headphone icon
+                            Image.asset(
+                              "assets/icons/ic_headphone.png",
+                              width: 18,
+                              height: 18,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          // Headphone icon
-                          Image.asset(
-                            "assets/icons/ic_headphone.png",
-                            width: 18,
-                            height: 18,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

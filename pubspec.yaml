@@ -49,6 +49,9 @@ dependencies:
   
   # Routing
   go_router: ^14.6.2
+  
+  # Text to Speech
+  flutter_tts: ^4.1.0
 
 dev_dependencies:
   flutter_test:
