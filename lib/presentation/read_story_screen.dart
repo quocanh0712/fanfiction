@@ -10,12 +10,16 @@ class ReadStoryScreen extends StatefulWidget {
   final ChapterModel chapter;
   final String workTitle;
   final String author;
+  final int currentChapterIndex;
+  final int totalChapters;
 
   const ReadStoryScreen({
     super.key,
     required this.chapter,
     required this.workTitle,
     required this.author,
+    required this.currentChapterIndex,
+    required this.totalChapters,
   });
 
   @override
@@ -189,7 +193,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           ),
           // FloatingActionButton synchronized with header
           Positioned(
-            bottom: 20,
+            bottom: 100,
             right: 20,
             child: SlideTransition(
               position: _slideAnimation,
@@ -200,7 +204,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                     _showStoryMenuBottomSheet(context);
                   },
                   backgroundColor: Colors.grey.shade900,
-                  child: const Icon(Icons.menu, color: Colors.white),
+                  child: Image.asset("assets/icons/ic_feature.png", width: 20,height: 20, color: Colors.white.withValues(alpha: 0.9),),
                 ),
               ),
             ),
@@ -217,8 +221,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => _StoryMenuBottomSheet(
         chapterTitle: widget.chapter.title,
-        currentChapter: 1,
-        totalChapters: 6,
+        currentChapter:
+            widget.currentChapterIndex + 1, // Convert 0-based to 1-based
+        totalChapters: widget.totalChapters,
       ),
     );
   }
@@ -450,7 +455,9 @@ class _StoryMenuBottomSheet extends StatelessWidget {
                     // Chapter info
                     Center(
                       child: Text(
-                        'Chapter $currentChapter - ($currentChapter/$totalChapters)',
+                        totalChapters == 1
+                            ? 'MainContent'
+                            : 'Chapter $currentChapter - ($currentChapter/$totalChapters)',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,

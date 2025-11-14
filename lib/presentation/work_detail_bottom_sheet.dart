@@ -108,6 +108,8 @@ class _WorkDetailBottomSheetState extends State<WorkDetailBottomSheet>
                           'chapter': firstChapter,
                           'workTitle': widget.workContent.title,
                           'author': widget.workContent.author,
+                          'currentChapterIndex': 0,
+                          'totalChapters': widget.workContent.chapters.length,
                         },
                       );
                     }
@@ -655,6 +657,8 @@ class _WorkDetailBottomSheetState extends State<WorkDetailBottomSheet>
                 'chapter': chapter,
                 'workTitle': widget.workContent.title,
                 'author': widget.workContent.author,
+                'currentChapterIndex': index,
+                'totalChapters': widget.workContent.chapters.length,
               },
             );
           },
