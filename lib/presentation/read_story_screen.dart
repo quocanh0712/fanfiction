@@ -23,6 +23,7 @@ class ReadStoryScreen extends StatefulWidget {
 class _ReadStoryScreenState extends State<ReadStoryScreen>
     with SingleTickerProviderStateMixin {
   bool _showHeader = true;
+  bool _isFirstTime = true;
   Timer? _hideTimer;
   late AnimationController _animationController;
   late Animation<Offset> _slideAnimation;
@@ -51,16 +52,20 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     // Show header initially
     _animationController.forward();
 
-    // Auto-hide after 3 seconds
+    // Auto-hide after 3 seconds only on first time
     _startHideTimer();
   }
 
   void _startHideTimer() {
+    // Only auto-hide on first time
+    if (!_isFirstTime) return;
+
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && _showHeader) {
+      if (mounted && _showHeader && _isFirstTime) {
         setState(() {
           _showHeader = false;
+          _isFirstTime = false; // Mark as no longer first time
         });
         _animationController.reverse();
       }
@@ -68,16 +73,21 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 
   void _toggleHeader() {
+    // Mark as no longer first time when user interacts
+    if (_isFirstTime) {
+      _isFirstTime = false;
+      _hideTimer?.cancel(); // Cancel auto-hide timer
+    }
+
     setState(() {
       _showHeader = !_showHeader;
     });
 
     if (_showHeader) {
       _animationController.forward();
-      _startHideTimer();
+      // Don't start timer again after first time
     } else {
       _animationController.reverse();
-      _hideTimer?.cancel();
     }
   }
 
@@ -102,7 +112,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                 padding: EdgeInsets.only(
                   left: 20,
                   right: 20,
-                  top: _showHeader ? 70 : 10,
+                  top: 50,
                   bottom: 10,
                 ),
                 child: _buildFormattedContent(widget.chapter.content),
@@ -114,59 +124,62 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             top: 0,
             left: 0,
             right: 0,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Container(
-                  height: 100,
-                  color: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Title centered with fixed width
-                      Positioned(
-                        top: 50,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: SizedBox(
-                            width:
-                                MediaQuery.of(context).size.width -
-                                32 - // padding left + right
-                                48 - // IconButton width
-                                16, // margin
-                            child: Text(
-                              widget.chapter.title,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+            child: SafeArea(
+              top: false,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Container(
+                    height: 100,
+                    color: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Title centered with fixed width
+                        Positioned(
+                          top: 50,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: SizedBox(
+                              width:
+                                  MediaQuery.of(context).size.width -
+                                  32 - // padding left + right
+                                  48 - // IconButton width
+                                  16, // margin
+                              child: Text(
+                                widget.chapter.title,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
-                      ),
-                      // Close button aligned to right and same height as title
-                      Positioned(
-                        top: 37,
-                        right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () => context.pop(),
-                          iconSize: 24,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                        // Close button aligned to right and same height as title
+                        Positioned(
+                          top: 37,
+                          right: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => context.pop(),
+                            iconSize: 24,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
