@@ -1901,11 +1901,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               'Light blue',
                             ].map((theme) {
                               final isSelected = widget.themeMode == theme;
-                              final isPremium = [
-                                'Paper',
-                                'Calm',
-                                'Light blue',
-                              ].contains(theme);
+                              final themeColor = _getThemeColor(theme);
                               return GestureDetector(
                                 onTap: widget.onThemeModeChanged != null
                                     ? () {
@@ -1921,30 +1917,14 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: isSelected
-                                              ? Colors.green
+                                              ? Colors.white
                                               : Colors.white.withValues(
                                                   alpha: 0.3,
                                                 ),
                                           width: isSelected ? 2 : 1,
                                         ),
-                                        color: _getThemeColor(
-                                          theme,
-                                        ).withValues(alpha: 0.3),
+                                        color: themeColor,
                                       ),
-                                      child: isPremium
-                                          ? Stack(
-                                              alignment: Alignment.topRight,
-                                              children: [
-                                                Center(
-                                                  child: Icon(
-                                                    Icons.star,
-                                                    color: Colors.yellow,
-                                                    size: 20,
-                                                  ),
-                                                ),
-                                              ],
-                                            )
-                                          : null,
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -1980,17 +1960,17 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
   Color _getThemeColor(String theme) {
     switch (theme) {
       case 'Default':
-        return Colors.black;
+        return const Color(0xFF121212); // Dark background
       case 'Light':
-        return Colors.white;
+        return const Color(0xFFFFFFFF); // White
       case 'Paper':
-        return const Color(0xFFF5F5DC); // Beige
+        return const Color(0xFFF5F5DC); // Beige/Paper color
       case 'Calm':
-        return const Color(0xFFE8F5E9); // Light green
+        return const Color(0xFFE8F5E9); // Light green/Calm
       case 'Light blue':
         return const Color(0xFFE3F2FD); // Light blue
       default:
-        return Colors.black;
+        return const Color(0xFF121212);
     }
   }
 
