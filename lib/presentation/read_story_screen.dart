@@ -703,6 +703,23 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     }
   }
 
+  Color _getFloatingActionButtonColor() {
+    switch (_themeMode) {
+      case 'Default':
+        return Colors.grey.shade900;
+      case 'Light':
+        return Colors.grey.shade300;
+      case 'Paper':
+        return const Color(0xFFE8E8D0); // Slightly darker beige
+      case 'Calm':
+        return const Color(0xFFD4E5D6); // Slightly darker green
+      case 'Light blue':
+        return const Color(0xFFC5E1F5); // Slightly darker blue
+      default:
+        return Colors.grey.shade900;
+    }
+  }
+
   @override
   void dispose() {
     _hideTimer?.cancel();
@@ -745,7 +762,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                   opacity: _fadeAnimation,
                   child: Container(
                     height: 100,
-                    color: Colors.black,
+                    color: _getBackgroundColor(),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
@@ -759,10 +776,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                             top: 37,
                             left: 0,
                             child: IconButton(
-                              icon: const Icon(
-                                Icons.pause,
-                                color: Colors.white,
-                              ),
+                              icon: Icon(Icons.pause, color: _getTextColor()),
                               onPressed: _toggleSpeech,
                               iconSize: 24,
                               padding: EdgeInsets.zero,
@@ -787,7 +801,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: _getTextColor(),
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
@@ -801,7 +815,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                           top: 37,
                           right: 0,
                           child: IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
+                            icon: Icon(Icons.close, color: _getTextColor()),
                             onPressed: () => context.pop(),
                             iconSize: 24,
                             padding: EdgeInsets.zero,
@@ -827,12 +841,12 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                   onPressed: () {
                     _showStoryMenuBottomSheet(context);
                   },
-                  backgroundColor: Colors.grey.shade900,
+                  backgroundColor: _getFloatingActionButtonColor(),
                   child: Image.asset(
                     "assets/icons/ic_feature.png",
                     width: 20,
                     height: 20,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: _getTextColor().withValues(alpha: 0.9),
                   ),
                 ),
               ),
