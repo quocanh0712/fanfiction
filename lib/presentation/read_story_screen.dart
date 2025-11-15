@@ -513,19 +513,16 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Content area with tap detection
-          GestureDetector(
-            onTap: _toggleHeader,
-            child: SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 50,
-                  bottom: 10,
-                ),
-                child: _buildFormattedContent(widget.chapter.content),
+          // Content area
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 50,
+                bottom: 10,
               ),
+              child: _buildFormattedContent(widget.chapter.content),
             ),
           ),
           // Sticky header
@@ -718,6 +715,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
               // If playing, allow user to tap a sentence to start from there
               if (_isPlaying) {
                 _startFromSentence(index);
+              } else {
+                // If not playing, toggle header
+                _toggleHeader();
               }
             },
             child: Padding(
