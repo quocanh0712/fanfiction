@@ -82,12 +82,34 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     flutterTts = FlutterTts();
 
     flutterTts.setCompletionHandler(() {
-      if (mounted && _isPlaying) {
-        // Move to next sentence
-        if (_currentSentenceIndex < _cleanSentences.length - 1) {
-          _readNextSentence(_currentSentenceIndex + 1);
-        } else {
-          // Finished reading all sentences
+      // Only proceed if we're still playing and haven't been interrupted
+      if (!mounted || !_isPlaying) return;
+
+      final currentIndex = _currentSentenceIndex;
+
+      // Verify the index is still valid
+      if (currentIndex < 0 || currentIndex >= _cleanSentences.length) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+            _currentSentenceIndex = -1;
+          });
+        }
+        return;
+      }
+
+      // Move to next sentence
+      if (currentIndex < _cleanSentences.length - 1) {
+        // Small delay to ensure TTS is ready for next sentence
+        Future.delayed(const Duration(milliseconds: 100), () {
+          // Double check that index hasn't changed (user might have tapped another sentence)
+          if (mounted && _isPlaying && _currentSentenceIndex == currentIndex) {
+            _readNextSentence(currentIndex + 1);
+          }
+        });
+      } else {
+        // Finished reading all sentences
+        if (mounted) {
           setState(() {
             _isPlaying = false;
             _currentSentenceIndex = -1;
@@ -259,7 +281,43 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     }
   }
 
+  Future<void> _startFromSentence(int index) async {
+    if (index < 0 || index >= _cleanSentences.length) return;
+
+    // Stop current speech completely
+    try {
+      await flutterTts.stop();
+      // Wait a bit to ensure TTS is fully stopped
+      await Future.delayed(const Duration(milliseconds: 100));
+    } catch (e) {
+      print('Error stopping TTS: $e');
+    }
+
+    // Update current sentence index immediately
+    if (mounted) {
+      setState(() {
+        _currentSentenceIndex = index;
+      });
+    }
+
+    // Scroll to the selected sentence
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSentence(index);
+    });
+
+    // Wait a bit for scroll to complete and TTS to be ready
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    // Start reading from the selected sentence
+    // Ensure we're still playing before starting
+    if (mounted && _isPlaying) {
+      // Reset any pending completion handlers by directly calling readNextSentence
+      _readNextSentence(index);
+    }
+  }
+
   Future<void> _readNextSentence(int index) async {
+    // Double check that we should continue
     if (index >= _cleanSentences.length || !_isPlaying) {
       if (mounted) {
         setState(() {
@@ -270,20 +328,35 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       return;
     }
 
+    // Update current sentence index
     if (mounted) {
       setState(() {
         _currentSentenceIndex = index;
       });
     }
 
-    // Scroll to current sentence
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToSentence(index);
-    });
+    // Scroll to current sentence (only if not the first sentence to avoid conflicts)
+    if (index > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToSentence(index);
+      });
+    }
 
     // Read current sentence using clean sentence for TTS
     // completion handler will call next sentence
-    await flutterTts.speak(_cleanSentences[index]);
+    try {
+      await flutterTts.speak(_cleanSentences[index]);
+    } catch (e) {
+      print('Error speaking sentence $index: $e');
+      // If error, try to continue with next sentence
+      if (mounted && _isPlaying && index < _cleanSentences.length - 1) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _isPlaying) {
+            _readNextSentence(index + 1);
+          }
+        });
+      }
+    }
   }
 
   void _scrollToTop() {
@@ -639,9 +712,18 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
         return RepaintBoundary(
           key: _sentenceKeys[index],
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: sentenceWidget,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              // If playing, allow user to tap a sentence to start from there
+              if (_isPlaying) {
+                _startFromSentence(index);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: sentenceWidget,
+            ),
           ),
         );
       },
