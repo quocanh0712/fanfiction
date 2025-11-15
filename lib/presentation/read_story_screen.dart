@@ -13,6 +13,7 @@ class ReadStoryScreen extends StatefulWidget {
   final String author;
   final int currentChapterIndex;
   final int totalChapters;
+  final List<ChapterModel> allChapters; // Add all chapters list
 
   const ReadStoryScreen({
     super.key,
@@ -21,6 +22,7 @@ class ReadStoryScreen extends StatefulWidget {
     required this.author,
     required this.currentChapterIndex,
     required this.totalChapters,
+    required this.allChapters,
   });
 
   @override
@@ -36,6 +38,10 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
 
+  // Current chapter state (can be updated)
+  late ChapterModel _currentChapter;
+  late int _currentChapterIndex;
+
   // TTS state
   late FlutterTts flutterTts;
   bool _isPlaying = false;
@@ -48,6 +54,10 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   @override
   void initState() {
     super.initState();
+    // Initialize current chapter state
+    _currentChapter = widget.chapter;
+    _currentChapterIndex = widget.currentChapterIndex;
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -76,6 +86,38 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
     // Auto-hide after 3 seconds only on first time
     _startHideTimer();
+  }
+
+  void _updateChapter(int chapterIndex) {
+    if (chapterIndex < 0 || chapterIndex >= widget.allChapters.length) return;
+
+    // Stop TTS if playing
+    if (_isPlaying) {
+      flutterTts.stop();
+      setState(() {
+        _isPlaying = false;
+        _currentSentenceIndex = -1;
+      });
+    }
+
+    // Update chapter
+    setState(() {
+      _currentChapter = widget.allChapters[chapterIndex];
+      _currentChapterIndex = chapterIndex;
+      _sentences = [];
+      _cleanSentences = [];
+      _sentenceKeys.clear();
+    });
+
+    // Re-parse content for new chapter
+    _parseContent();
+
+    // Scroll to top
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
   }
 
   void _initTts() {
@@ -146,7 +188,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
   void _parseContent() {
     // Parse content into sentences while preserving original format
-    final content = widget.chapter.content;
+    final content = _currentChapter.content;
 
     // Split by sentence endings but keep original text with formatting
     final sentencePattern = RegExp(r'([.!?])\s+');
@@ -522,7 +564,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                 top: 50,
                 bottom: 10,
               ),
-              child: _buildFormattedContent(widget.chapter.content),
+              child: _buildFormattedContent(_currentChapter.content),
             ),
           ),
           // Sticky header
@@ -576,7 +618,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                                   (_isPlaying ? 40 : 0) - // Pause button width
                                   16, // margin
                               child: Text(
-                                widget.chapter.title,
+                                _currentChapter.title,
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -641,22 +683,36 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _StoryMenuBottomSheet(
-        chapterTitle: widget.chapter.title,
-        chapterContent: widget.chapter.content,
-        currentChapter:
-            widget.currentChapterIndex + 1, // Convert 0-based to 1-based
-        totalChapters: widget.totalChapters,
-        isPlaying: _isPlaying,
-        onPlayPauseTap: () async {
-          // Close bottom sheet first
-          Navigator.of(context).pop();
-          // Wait a bit for bottom sheet to close completely and ListView to be ready
-          await Future.delayed(const Duration(milliseconds: 500));
-          // Then toggle speech
-          if (mounted) {
-            _toggleSpeech();
-          }
+      builder: (bottomSheetContext) => StatefulBuilder(
+        builder: (context, setBottomSheetState) {
+          return _StoryMenuBottomSheet(
+            chapterTitle: _currentChapter.title,
+            chapterContent: _currentChapter.content,
+            currentChapter:
+                _currentChapterIndex + 1, // Convert 0-based to 1-based
+            totalChapters: widget.totalChapters,
+            allChapters: widget.allChapters,
+            isPlaying: _isPlaying,
+            workTitle: widget.workTitle,
+            onChapterTap: (index) {
+              _updateChapter(index);
+              // Update bottom sheet to show new chapter info
+              setBottomSheetState(() {});
+              setState(() {
+                // Also update parent state
+              });
+            },
+            onPlayPauseTap: () async {
+              // Close bottom sheet first
+              Navigator.of(context).pop();
+              // Wait a bit for bottom sheet to close completely and ListView to be ready
+              await Future.delayed(const Duration(milliseconds: 500));
+              // Then toggle speech
+              if (mounted) {
+                _toggleSpeech();
+              }
+            },
+          );
         },
       ),
     );
@@ -1152,15 +1208,21 @@ class _StoryMenuBottomSheet extends StatefulWidget {
   final String chapterContent;
   final int currentChapter;
   final int totalChapters;
+  final List<ChapterModel> allChapters;
   final bool isPlaying;
+  final Function(int)? onChapterTap;
   final VoidCallback? onPlayPauseTap;
+  final String workTitle;
 
   const _StoryMenuBottomSheet({
     required this.chapterTitle,
     required this.chapterContent,
     required this.currentChapter,
     required this.totalChapters,
+    required this.allChapters,
     required this.isPlaying,
+    required this.workTitle,
+    this.onChapterTap,
     this.onPlayPauseTap,
   });
 
@@ -1170,6 +1232,7 @@ class _StoryMenuBottomSheet extends StatefulWidget {
 
 class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
   // TTS is handled by parent screen, bottom sheet just triggers it
+  bool _showChaptersList = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1180,7 +1243,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          height: screenHeight * 0.43,
+          height: _showChaptersList ? screenHeight * 0.7 : screenHeight * 0.43,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.center,
@@ -1223,7 +1286,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                       child: Container(
                         width: 200,
                         child: Text(
-                          widget.chapterTitle,
+                          widget.workTitle,
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1324,9 +1387,115 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                       imagePath: 'assets/icons/ic_chapter_list.png',
                       title: 'Chapters',
                       onTap: () {
-                        // TODO: Handle chapters
+                        setState(() {
+                          _showChaptersList = !_showChaptersList;
+                        });
                       },
                     ),
+                    // Chapters list (shown when _showChaptersList is true)
+                    if (_showChaptersList) ...[
+                      const SizedBox(height: 16),
+                      const Divider(color: Colors.white24, height: 1),
+                      SizedBox(
+                        height: 200, // Fixed height for chapters list
+                        child: ListView.separated(
+                          itemCount: widget.allChapters.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(color: Colors.white24, height: 1),
+                          itemBuilder: (context, index) {
+                            final chapter = widget.allChapters[index];
+                            final isSelected =
+                                widget.currentChapter == index + 1;
+
+                            // Extract chapter title (remove "Chapter X:" prefix if exists)
+                            String displayTitle = chapter.title;
+                            if (displayTitle.contains(':')) {
+                              final parts = displayTitle.split(':');
+                              if (parts.length > 1) {
+                                displayTitle = parts
+                                    .sublist(1)
+                                    .join(':')
+                                    .trim();
+                              }
+                            }
+
+                            return InkWell(
+                              onTap: () {
+                                if (widget.onChapterTap != null) {
+                                  widget.onChapterTap!(index);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Chapter number indicator
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.white.withValues(
+                                                  alpha: 0.3,
+                                                ),
+                                          width: 1,
+                                        ),
+                                        color: isSelected
+                                            ? Colors.white.withValues(
+                                                alpha: 0.2,
+                                              )
+                                            : Colors.transparent,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.white.withValues(
+                                                    alpha: 0.7,
+                                                  ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Chapter title
+                                    Expanded(
+                                      child: Text(
+                                        displayTitle.isEmpty
+                                            ? chapter.title
+                                            : displayTitle,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.white.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                     const Divider(color: Colors.white24, height: 1),
                     _buildMenuItem(
                       imagePath: 'assets/icons/ic_text_theme.png',
@@ -1346,45 +1515,6 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                   ],
                 ),
               ),
-              // Progress indicator on the right
-              // Positioned(
-              //   top: 20,
-              //   right: 20,
-              //   child: Container(
-              //     width: 50,
-              //     height: 50,
-              //     decoration: BoxDecoration(
-              //       shape: BoxShape.circle,
-              //       border: Border.all(color: Colors.green, width: 3),
-              //     ),
-              //     child: Stack(
-              //       alignment: Alignment.center,
-              //       children: [
-              //         // Progress arc (simplified - showing 17%)
-              //         SizedBox(
-              //           width: 50,
-              //           height: 50,
-              //           child: CircularProgressIndicator(
-              //             value: 0.17,
-              //             strokeWidth: 3,
-              //             valueColor: const AlwaysStoppedAnimation<Color>(
-              //               Colors.green,
-              //             ),
-              //             backgroundColor: Colors.transparent,
-              //           ),
-              //         ),
-              //         Text(
-              //           '17',
-              //           style: GoogleFonts.poppins(
-              //             fontSize: 14,
-              //             fontWeight: FontWeight.w600,
-              //             color: Colors.white,
-              //           ),
-              //         ),
-              //       ],
-              //     ),
-              //   ),
-              // ),
             ],
           ),
         ),

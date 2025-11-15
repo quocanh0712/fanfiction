@@ -148,6 +148,8 @@ class AppRouter {
           final author = extra['author'] as String? ?? '';
           final currentChapterIndex = extra['currentChapterIndex'] as int? ?? 0;
           final totalChapters = extra['totalChapters'] as int? ?? 1;
+          final allChapters =
+              extra['allChapters'] as List<ChapterModel>? ?? [chapter];
 
           return ReadStoryScreen(
             chapter: chapter,
@@ -155,6 +157,7 @@ class AppRouter {
             author: author,
             currentChapterIndex: currentChapterIndex,
             totalChapters: totalChapters,
+            allChapters: allChapters,
           );
         },
       ),
