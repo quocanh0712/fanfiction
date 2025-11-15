@@ -228,8 +228,15 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         if (mounted) {
           setState(() {
             _isPlaying = true;
+            _currentSentenceIndex = 0; // Set to first sentence
           });
         }
+
+        // Scroll to first sentence immediately when starting to play
+        // Use multiple attempts to ensure scroll works even from bottom of page
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToTop();
+        });
 
         // Start reading sentence by sentence
         _readNextSentence(0);
@@ -279,8 +286,79 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     await flutterTts.speak(_cleanSentences[index]);
   }
 
+  void _scrollToTop() {
+    // Directly scroll to top using scroll controller
+    if (!_scrollController.hasClients) {
+      // If scroll controller is not ready, wait a bit and try again
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) {
+          _scrollToTop();
+        }
+      });
+      return;
+    }
+
+    // Try multiple approaches to ensure scroll works
+    // Method 1: Direct animateTo
+    try {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } catch (e) {
+      print('Error animating to top: $e');
+    }
+
+    // Method 2: Also try jumpTo as fallback
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (_scrollController.hasClients && mounted) {
+        try {
+          if (_scrollController.offset > 0) {
+            _scrollController.jumpTo(0);
+          }
+        } catch (e) {
+          print('Error jumping to top: $e');
+        }
+      }
+    });
+
+    // Method 3: Ensure first sentence is visible after scroll
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _sentenceKeys.containsKey(0)) {
+        final key = _sentenceKeys[0];
+        if (key?.currentContext != null) {
+          try {
+            Scrollable.ensureVisible(
+              key!.currentContext!,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              alignment: 0.0,
+            );
+          } catch (e) {
+            print('Error ensuring visible: $e');
+          }
+        }
+      }
+    });
+  }
+
   void _scrollToSentence(int index) {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients) {
+      // If scroll controller is not ready, wait a bit and try again
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients && mounted) {
+          _scrollToSentence(index);
+        }
+      });
+      return;
+    }
+
+    // For first sentence, use scroll to top
+    if (index == 0) {
+      _scrollToTop();
+      return;
+    }
 
     final key = _sentenceKeys[index];
     if (key?.currentContext != null) {
@@ -290,6 +368,13 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         curve: Curves.easeInOut,
         alignment: 0.3, // Show sentence at 30% from top
       );
+    } else {
+      // If context is not ready, wait a bit and try again
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _scrollToSentence(index);
+        }
+      });
     }
   }
 
@@ -496,8 +581,8 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         onPlayPauseTap: () async {
           // Close bottom sheet first
           Navigator.of(context).pop();
-          // Wait a bit for bottom sheet to close completely
-          await Future.delayed(const Duration(milliseconds: 300));
+          // Wait a bit for bottom sheet to close completely and ListView to be ready
+          await Future.delayed(const Duration(milliseconds: 500));
           // Then toggle speech
           if (mounted) {
             _toggleSpeech();
