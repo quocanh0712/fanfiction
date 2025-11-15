@@ -40,7 +40,8 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   late FlutterTts flutterTts;
   bool _isPlaying = false;
   int _currentSentenceIndex = -1;
-  List<String> _sentences = [];
+  List<String> _sentences = []; // Sentences with original format
+  List<String> _cleanSentences = []; // Clean sentences for TTS
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _sentenceKeys = {};
 
@@ -83,7 +84,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     flutterTts.setCompletionHandler(() {
       if (mounted && _isPlaying) {
         // Move to next sentence
-        if (_currentSentenceIndex < _sentences.length - 1) {
+        if (_currentSentenceIndex < _cleanSentences.length - 1) {
           _readNextSentence(_currentSentenceIndex + 1);
         } else {
           // Finished reading all sentences
@@ -122,17 +123,45 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 
   void _parseContent() {
-    // Split content into sentences (by periods, exclamation marks, question marks)
-    String cleanContent = widget.chapter.content
-        .replaceAll(RegExp(r'\*\*'), '') // Remove bold markers
-        .replaceAll(RegExp(r'\n+'), ' '); // Replace newlines with spaces
+    // Parse content into sentences while preserving original format
+    final content = widget.chapter.content;
 
-    // Split by sentence endings
-    _sentences = cleanContent
+    // Split by sentence endings but keep original text with formatting
+    final sentencePattern = RegExp(r'([.!?])\s+');
+    final matches = sentencePattern.allMatches(content);
+
+    _sentences = [];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      // Include the punctuation and space
+      final sentence = content.substring(lastIndex, match.end).trim();
+      if (sentence.isNotEmpty) {
+        _sentences.add(sentence);
+      }
+      lastIndex = match.end;
+    }
+
+    // Add remaining content
+    if (lastIndex < content.length) {
+      final remaining = content.substring(lastIndex).trim();
+      if (remaining.isNotEmpty) {
+        _sentences.add(remaining);
+      }
+    }
+
+    // Also create clean sentences for TTS (without formatting)
+    final cleanContent = content
+        .replaceAll(RegExp(r'\*\*'), '')
+        .replaceAll(RegExp(r'\n+'), ' ');
+    final cleanSentences = cleanContent
         .split(RegExp(r'(?<=[.!?])\s+'))
         .where((s) => s.trim().isNotEmpty)
         .map((s) => s.trim())
         .toList();
+
+    // Store clean sentences for TTS matching
+    _cleanSentences = cleanSentences;
 
     // Create keys for each sentence
     for (int i = 0; i < _sentences.length; i++) {
@@ -224,7 +253,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 
   Future<void> _readNextSentence(int index) async {
-    if (index >= _sentences.length || !_isPlaying) {
+    if (index >= _cleanSentences.length || !_isPlaying) {
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -245,8 +274,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       _scrollToSentence(index);
     });
 
-    // Read current sentence - completion handler will call next sentence
-    await flutterTts.speak(_sentences[index]);
+    // Read current sentence using clean sentence for TTS
+    // completion handler will call next sentence
+    await flutterTts.speak(_cleanSentences[index]);
   }
 
   void _scrollToSentence(int index) {
@@ -329,8 +359,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           GestureDetector(
             onTap: _toggleHeader,
             child: SafeArea(
-              child: SingleChildScrollView(
-                controller: _scrollController,
+              child: Padding(
                 padding: EdgeInsets.only(
                   left: 20,
                   right: 20,
@@ -463,12 +492,13 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         currentChapter:
             widget.currentChapterIndex + 1, // Convert 0-based to 1-based
         totalChapters: widget.totalChapters,
-        onPlayTap: () async {
+        isPlaying: _isPlaying,
+        onPlayPauseTap: () async {
           // Close bottom sheet first
           Navigator.of(context).pop();
           // Wait a bit for bottom sheet to close completely
           await Future.delayed(const Duration(milliseconds: 300));
-          // Then start speech
+          // Then toggle speech
           if (mounted) {
             _toggleSpeech();
           }
@@ -478,45 +508,58 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 
   Widget _buildFormattedContent(String content) {
-    // If TTS is playing or was playing, use sentence-based content for highlighting
-    if (_isPlaying || (_sentences.isNotEmpty && _currentSentenceIndex >= 0)) {
-      return _buildSentenceBasedContent(content);
+    // Always render content by sentences
+    // Parse if not already parsed
+    if (_sentences.isEmpty) {
+      _parseContent();
     }
-
-    // Otherwise, build normally with line-based formatting
-    return _buildLineBasedContent(content);
+    return _buildSentenceBasedContent(content);
   }
 
   Widget _buildSentenceBasedContent(String content) {
-    final List<Widget> widgets = [];
+    // Use ListView.builder for better performance with lazy loading
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      cacheExtent: 500, // Cache more items for smoother scrolling
+      itemCount: _sentences.length,
+      itemBuilder: (context, index) {
+        final sentence = _sentences[index];
+        // Only highlight when playing, otherwise all sentences are normal white
+        final isCurrentSentence = _isPlaying && _currentSentenceIndex == index;
+        final isDimmed = _isPlaying && _currentSentenceIndex != index;
 
-    // Build content based on sentences with highlighting
-    for (int i = 0; i < _sentences.length; i++) {
-      final sentence = _sentences[i];
-      final isCurrentSentence = _currentSentenceIndex == i;
-
-      widgets.add(
-        Padding(
-          key: _sentenceKeys[i],
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Text(
+        // Use RepaintBoundary to isolate repaints and improve performance
+        Widget sentenceWidget;
+        if (sentence.contains('**')) {
+          sentenceWidget = _buildBoldTextWithHighlight(
             sentence,
-            style: GoogleFonts.poppins(
+            isCurrentSentence,
+            isDimmed,
+          );
+        } else {
+          sentenceWidget = _buildTextWithHighlight(
+            sentence,
+            GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: isCurrentSentence
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.4),
+              color: Colors.white,
               height: 1.6,
             ),
-          ),
-        ),
-      );
-    }
+            isCurrentSentence,
+            isDimmed,
+          );
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets,
+        return RepaintBoundary(
+          key: _sentenceKeys[index],
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: sentenceWidget,
+          ),
+        );
+      },
     );
   }
 
@@ -666,6 +709,275 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       ),
     );
   }
+
+  Widget _buildTextWithHighlight(
+    String text,
+    TextStyle style,
+    bool isCurrent,
+    bool isDimmed,
+  ) {
+    // If not playing, use normal white color
+    // If playing: current sentence is white, others are dimmed
+    return Text(
+      text,
+      style: style.copyWith(
+        color: isCurrent
+            ? Colors.white
+            : (isDimmed ? Colors.white.withValues(alpha: 0.4) : Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildTextWithHighlightOld(String text, TextStyle style) {
+    // If not playing, return normal text
+    if (!_isPlaying ||
+        _currentSentenceIndex < 0 ||
+        _currentSentenceIndex >= _sentences.length) {
+      return Text(text, style: style);
+    }
+
+    // Find current sentence (clean version)
+    final currentSentence = _sentences[_currentSentenceIndex];
+    // Remove bold markers and normalize for comparison
+    final cleanText = text.replaceAll(RegExp(r'\*\*'), '');
+
+    // Check if this line contains the current sentence
+    final containsCurrentSentence = cleanText.contains(currentSentence);
+
+    if (containsCurrentSentence) {
+      // Highlight current sentence, dim the rest
+      return _buildHighlightedText(text, currentSentence, style);
+    } else {
+      // Dim the entire line if it doesn't contain current sentence
+      return Text(
+        text,
+        style: style.copyWith(color: Colors.white.withValues(alpha: 0.4)),
+      );
+    }
+  }
+
+  Widget _buildHighlightedText(
+    String text,
+    String highlightSentence,
+    TextStyle baseStyle,
+  ) {
+    // Remove bold markers for comparison
+    final cleanText = text.replaceAll(RegExp(r'\*\*'), '');
+    final cleanHighlight = highlightSentence;
+
+    final highlightIndex = cleanText.indexOf(cleanHighlight);
+    if (highlightIndex == -1) {
+      // If can't find exact match, just dim the whole line
+      return Text(
+        text,
+        style: baseStyle.copyWith(color: Colors.white.withValues(alpha: 0.4)),
+      );
+    }
+
+    // Build text spans with highlight
+    final List<TextSpan> spans = [];
+
+    // Text before highlight
+    if (highlightIndex > 0) {
+      final beforeText = text.substring(0, highlightIndex);
+      spans.add(
+        TextSpan(
+          text: beforeText,
+          style: baseStyle.copyWith(color: Colors.white.withValues(alpha: 0.4)),
+        ),
+      );
+    }
+
+    // Highlighted text (need to find original text with formatting)
+    final highlightEnd = highlightIndex + cleanHighlight.length;
+    final highlightedText = text.substring(
+      highlightIndex,
+      highlightEnd < text.length ? highlightEnd : text.length,
+    );
+    spans.add(
+      TextSpan(
+        text: highlightedText,
+        style: baseStyle.copyWith(color: Colors.white),
+      ),
+    );
+
+    // Text after highlight
+    if (highlightEnd < text.length) {
+      final afterText = text.substring(highlightEnd);
+      spans.add(
+        TextSpan(
+          text: afterText,
+          style: baseStyle.copyWith(color: Colors.white.withValues(alpha: 0.4)),
+        ),
+      );
+    }
+
+    return RichText(text: TextSpan(children: spans));
+  }
+
+  Widget _buildBoldTextWithHighlight(
+    String text,
+    bool isCurrent,
+    bool isDimmed,
+  ) {
+    // Parse text with **bold** markers
+    final List<TextSpan> spans = [];
+    final RegExp boldRegex = RegExp(r'\*\*(.*?)\*\*');
+    // If not playing, use normal white color
+    // If playing: current sentence is white, others are dimmed
+    final baseColor = isCurrent
+        ? Colors.white
+        : (isDimmed ? Colors.white.withValues(alpha: 0.4) : Colors.white);
+
+    int lastIndex = 0;
+    for (final match in boldRegex.allMatches(text)) {
+      // Add text before bold
+      if (match.start > lastIndex) {
+        final beforeText = text.substring(lastIndex, match.start);
+        spans.add(
+          TextSpan(
+            text: beforeText,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: baseColor,
+              height: 1.6,
+            ),
+          ),
+        );
+      }
+
+      // Add bold text
+      final boldText = match.group(1)!;
+      spans.add(
+        TextSpan(
+          text: boldText,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: baseColor,
+            height: 1.6,
+          ),
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      final remainingText = text.substring(lastIndex);
+      spans.add(
+        TextSpan(
+          text: remainingText,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: baseColor,
+            height: 1.6,
+          ),
+        ),
+      );
+    }
+
+    return RichText(
+      text: TextSpan(
+        children: spans,
+        style: GoogleFonts.poppins(fontSize: 12, height: 1.6, color: baseColor),
+      ),
+    );
+  }
+
+  Widget _buildBoldTextWithHighlightOld(String text) {
+    // If not playing, use normal bold text
+    if (!_isPlaying ||
+        _currentSentenceIndex < 0 ||
+        _currentSentenceIndex >= _sentences.length) {
+      return _buildBoldText(text);
+    }
+
+    // Parse text with **bold** markers and highlight
+    final List<TextSpan> spans = [];
+    final RegExp boldRegex = RegExp(r'\*\*(.*?)\*\*');
+    final currentSentence = _sentences[_currentSentenceIndex];
+    final cleanText = text.replaceAll(RegExp(r'\*\*'), '');
+
+    int lastIndex = 0;
+    for (final match in boldRegex.allMatches(text)) {
+      // Add text before bold
+      if (match.start > lastIndex) {
+        final beforeText = text.substring(lastIndex, match.start);
+        spans.add(
+          TextSpan(
+            text: beforeText,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: cleanText.contains(currentSentence)
+                  ? _getTextColorForSentence(beforeText, currentSentence)
+                  : Colors.white.withValues(alpha: 0.4),
+            ),
+          ),
+        );
+      }
+
+      // Add bold text
+      final boldText = match.group(1)!;
+      spans.add(
+        TextSpan(
+          text: boldText,
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: cleanText.contains(currentSentence)
+                ? _getTextColorForSentence(boldText, currentSentence)
+                : Colors.white.withValues(alpha: 0.4),
+          ),
+        ),
+      );
+
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      final remainingText = text.substring(lastIndex);
+      spans.add(
+        TextSpan(
+          text: remainingText,
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: cleanText.contains(currentSentence)
+                ? _getTextColorForSentence(remainingText, currentSentence)
+                : Colors.white.withValues(alpha: 0.4),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: RichText(
+        text: TextSpan(
+          children: spans,
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            height: 1.6,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getTextColorForSentence(String text, String currentSentence) {
+    final cleanText = text.replaceAll(RegExp(r'\*\*'), '');
+    if (cleanText.contains(currentSentence)) {
+      return Colors.white; // Highlight
+    }
+    return Colors.white.withValues(alpha: 0.4); // Dim
+  }
 }
 
 class _StoryMenuBottomSheet extends StatefulWidget {
@@ -673,14 +985,16 @@ class _StoryMenuBottomSheet extends StatefulWidget {
   final String chapterContent;
   final int currentChapter;
   final int totalChapters;
-  final VoidCallback? onPlayTap;
+  final bool isPlaying;
+  final VoidCallback? onPlayPauseTap;
 
   const _StoryMenuBottomSheet({
     required this.chapterTitle,
     required this.chapterContent,
     required this.currentChapter,
     required this.totalChapters,
-    this.onPlayTap,
+    required this.isPlaying,
+    this.onPlayPauseTap,
   });
 
   @override
@@ -775,9 +1089,9 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                     // Audio playback section
                     GestureDetector(
                       onTap: () {
-                        // Close bottom sheet and start speech
-                        if (widget.onPlayTap != null) {
-                          widget.onPlayTap!();
+                        // Close bottom sheet and toggle speech
+                        if (widget.onPlayPauseTap != null) {
+                          widget.onPlayPauseTap!();
                         }
                       },
                       child: Center(
@@ -785,7 +1099,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Play button
+                            // Play/Pause button
                             Container(
                               width: 28,
                               height: 28,
@@ -795,14 +1109,16 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               ),
                               child: Center(
                                 child: IconButton(
-                                  icon: const Icon(
-                                    Icons.play_arrow,
+                                  icon: Icon(
+                                    widget.isPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
                                     color: Colors.black,
                                   ),
                                   onPressed: () {
-                                    // Close bottom sheet and start speech
-                                    if (widget.onPlayTap != null) {
-                                      widget.onPlayTap!();
+                                    // Close bottom sheet and toggle speech
+                                    if (widget.onPlayPauseTap != null) {
+                                      widget.onPlayPauseTap!();
                                     }
                                   },
                                   iconSize: 14,
@@ -814,7 +1130,9 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                             const SizedBox(width: 16),
                             // Text
                             Text(
-                              "Tap 'Play' to start listening",
+                              widget.isPlaying
+                                  ? "Tap to pause"
+                                  : "Tap 'Play' to start listening",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
