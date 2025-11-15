@@ -36,6 +36,14 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
 
+  // TTS state
+  late FlutterTts flutterTts;
+  bool _isPlaying = false;
+  int _currentSentenceIndex = -1;
+  List<String> _sentences = [];
+  final ScrollController _scrollController = ScrollController();
+  final Map<int, GlobalKey> _sentenceKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +64,12 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
+    // Initialize TTS
+    _initTts();
+
+    // Parse content into sentences
+    _parseContent();
+
     // Show header initially
     _animationController.forward();
 
@@ -63,13 +77,199 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     _startHideTimer();
   }
 
+  void _initTts() {
+    flutterTts = FlutterTts();
+
+    flutterTts.setCompletionHandler(() {
+      if (mounted && _isPlaying) {
+        // Move to next sentence
+        if (_currentSentenceIndex < _sentences.length - 1) {
+          _readNextSentence(_currentSentenceIndex + 1);
+        } else {
+          // Finished reading all sentences
+          setState(() {
+            _isPlaying = false;
+            _currentSentenceIndex = -1;
+          });
+          // Restart auto-hide timer after speech finishes (only if first time)
+          if (_isFirstTime) {
+            _startHideTimer();
+          }
+        }
+      }
+    });
+
+    flutterTts.setErrorHandler((msg) {
+      print('TTS Error Handler: $msg');
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _currentSentenceIndex = -1;
+        });
+      }
+    });
+
+    flutterTts.setStartHandler(() {
+      if (mounted) {
+        setState(() {
+          _isPlaying = true;
+          _showHeader = true; // Always show header when playing
+        });
+        _animationController.forward();
+        _hideTimer?.cancel(); // Cancel auto-hide timer when playing
+      }
+    });
+  }
+
+  void _parseContent() {
+    // Split content into sentences (by periods, exclamation marks, question marks)
+    String cleanContent = widget.chapter.content
+        .replaceAll(RegExp(r'\*\*'), '') // Remove bold markers
+        .replaceAll(RegExp(r'\n+'), ' '); // Replace newlines with spaces
+
+    // Split by sentence endings
+    _sentences = cleanContent
+        .split(RegExp(r'(?<=[.!?])\s+'))
+        .where((s) => s.trim().isNotEmpty)
+        .map((s) => s.trim())
+        .toList();
+
+    // Create keys for each sentence
+    for (int i = 0; i < _sentences.length; i++) {
+      _sentenceKeys[i] = GlobalKey();
+    }
+  }
+
+  Future<void> _toggleSpeech() async {
+    try {
+      if (_isPlaying) {
+        await flutterTts.stop();
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+            _currentSentenceIndex = -1;
+          });
+          // Restart auto-hide timer after stopping (only if first time)
+          if (_isFirstTime) {
+            _startHideTimer();
+          }
+        }
+      } else {
+        // Show header immediately when starting to play
+        if (mounted) {
+          setState(() {
+            _showHeader = true;
+          });
+          _animationController.forward();
+          _hideTimer?.cancel();
+        }
+
+        if (_sentences.isEmpty) {
+          _parseContent();
+        }
+
+        if (_sentences.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No content to read'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Set language
+        try {
+          await flutterTts.setLanguage('en-US');
+        } catch (e) {
+          try {
+            await flutterTts.setLanguage('en');
+          } catch (e2) {
+            print('Failed to set language: $e2');
+          }
+        }
+
+        await flutterTts.setSpeechRate(0.5);
+        await flutterTts.setVolume(1.0);
+        await flutterTts.setPitch(1.0);
+
+        // Set playing state immediately
+        if (mounted) {
+          setState(() {
+            _isPlaying = true;
+          });
+        }
+
+        // Start reading sentence by sentence
+        _readNextSentence(0);
+      }
+    } catch (e) {
+      print('TTS Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('TTS Error: Please rebuild the app. Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        setState(() {
+          _isPlaying = false;
+          _currentSentenceIndex = -1;
+        });
+      }
+    }
+  }
+
+  Future<void> _readNextSentence(int index) async {
+    if (index >= _sentences.length || !_isPlaying) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+          _currentSentenceIndex = -1;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentSentenceIndex = index;
+      });
+    }
+
+    // Scroll to current sentence
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSentence(index);
+    });
+
+    // Read current sentence - completion handler will call next sentence
+    await flutterTts.speak(_sentences[index]);
+  }
+
+  void _scrollToSentence(int index) {
+    if (!_scrollController.hasClients) return;
+
+    final key = _sentenceKeys[index];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.3, // Show sentence at 30% from top
+      );
+    }
+  }
+
   void _startHideTimer() {
-    // Only auto-hide on first time
-    if (!_isFirstTime) return;
+    // Only auto-hide on first time and when not playing
+    if (!_isFirstTime || _isPlaying) return;
 
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && _showHeader && _isFirstTime) {
+      if (mounted && _showHeader && _isFirstTime && !_isPlaying) {
         setState(() {
           _showHeader = false;
           _isFirstTime = false; // Mark as no longer first time
@@ -80,6 +280,18 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   }
 
   void _toggleHeader() {
+    // Don't allow hiding header when TTS is playing
+    if (_isPlaying && !_showHeader) {
+      setState(() {
+        _showHeader = true;
+      });
+      _animationController.forward();
+      return;
+    }
+
+    // Don't allow hiding when playing
+    if (_isPlaying) return;
+
     // Mark as no longer first time when user interacts
     if (_isFirstTime) {
       _isFirstTime = false;
@@ -102,6 +314,8 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   void dispose() {
     _hideTimer?.cancel();
     _animationController.dispose();
+    _scrollController.dispose();
+    flutterTts.stop();
     super.dispose();
   }
 
@@ -116,6 +330,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             onTap: _toggleHeader,
             child: SafeArea(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: EdgeInsets.only(
                   left: 20,
                   right: 20,
@@ -147,10 +362,26 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
+                        // Pause button on the left (only show when playing)
+                        if (_isPlaying)
+                          Positioned(
+                            top: 37,
+                            left: 0,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.pause,
+                                color: Colors.white,
+                              ),
+                              onPressed: _toggleSpeech,
+                              iconSize: 24,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ),
                         // Title centered with fixed width
                         Positioned(
                           top: 50,
-                          left: 0,
+                          left: _isPlaying ? 40 : 0,
                           right: 0,
                           child: Center(
                             child: SizedBox(
@@ -158,6 +389,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                                   MediaQuery.of(context).size.width -
                                   32 - // padding left + right
                                   48 - // IconButton width
+                                  (_isPlaying ? 40 : 0) - // Pause button width
                                   16, // margin
                               child: Text(
                                 widget.chapter.title,
@@ -231,11 +463,64 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         currentChapter:
             widget.currentChapterIndex + 1, // Convert 0-based to 1-based
         totalChapters: widget.totalChapters,
+        onPlayTap: () async {
+          // Close bottom sheet first
+          Navigator.of(context).pop();
+          // Wait a bit for bottom sheet to close completely
+          await Future.delayed(const Duration(milliseconds: 300));
+          // Then start speech
+          if (mounted) {
+            _toggleSpeech();
+          }
+        },
       ),
     );
   }
 
   Widget _buildFormattedContent(String content) {
+    // If TTS is playing or was playing, use sentence-based content for highlighting
+    if (_isPlaying || (_sentences.isNotEmpty && _currentSentenceIndex >= 0)) {
+      return _buildSentenceBasedContent(content);
+    }
+
+    // Otherwise, build normally with line-based formatting
+    return _buildLineBasedContent(content);
+  }
+
+  Widget _buildSentenceBasedContent(String content) {
+    final List<Widget> widgets = [];
+
+    // Build content based on sentences with highlighting
+    for (int i = 0; i < _sentences.length; i++) {
+      final sentence = _sentences[i];
+      final isCurrentSentence = _currentSentenceIndex == i;
+
+      widgets.add(
+        Padding(
+          key: _sentenceKeys[i],
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            sentence,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: isCurrentSentence
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.4),
+              height: 1.6,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets,
+    );
+  }
+
+  Widget _buildLineBasedContent(String content) {
     // Split content by newlines
     final lines = content.split('\n');
     final List<Widget> widgets = [];
@@ -388,12 +673,14 @@ class _StoryMenuBottomSheet extends StatefulWidget {
   final String chapterContent;
   final int currentChapter;
   final int totalChapters;
+  final VoidCallback? onPlayTap;
 
   const _StoryMenuBottomSheet({
     required this.chapterTitle,
     required this.chapterContent,
     required this.currentChapter,
     required this.totalChapters,
+    this.onPlayTap,
   });
 
   @override
@@ -401,116 +688,7 @@ class _StoryMenuBottomSheet extends StatefulWidget {
 }
 
 class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
-  late FlutterTts flutterTts;
-  bool _isPlaying = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initTts();
-  }
-
-  void _initTts() async {
-    flutterTts = FlutterTts();
-
-    // Wait for TTS to be ready
-    await flutterTts.awaitSpeakCompletion(true);
-
-    flutterTts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() {
-          _isPlaying = false;
-        });
-      }
-    });
-
-    flutterTts.setErrorHandler((msg) {
-      print('TTS Error Handler: $msg');
-      if (mounted) {
-        setState(() {
-          _isPlaying = false;
-        });
-      }
-    });
-
-    flutterTts.setStartHandler(() {
-      if (mounted) {
-        setState(() {
-          _isPlaying = true;
-        });
-      }
-    });
-  }
-
-  Future<void> _toggleSpeech() async {
-    try {
-      if (_isPlaying) {
-        await flutterTts.stop();
-        if (mounted) {
-          setState(() {
-            _isPlaying = false;
-          });
-        }
-      } else {
-        // Clean content - remove markdown formatting
-        String cleanContent = widget.chapterContent
-            .replaceAll(RegExp(r'\*\*'), '') // Remove bold markers
-            .replaceAll(RegExp(r'\n+'), ' ') // Replace newlines with spaces
-            .trim();
-
-        if (cleanContent.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No content to read'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-          return;
-        }
-
-        // Set language - iOS uses format like 'en-US' or 'en'
-        // Try 'en-US' first, fallback to 'en' if that fails
-        try {
-          await flutterTts.setLanguage('en-US');
-        } catch (e) {
-          // If en-US fails, try 'en'
-          try {
-            await flutterTts.setLanguage('en');
-          } catch (e2) {
-            print('Failed to set language: $e2');
-            // Continue anyway, TTS might work with default language
-          }
-        }
-        await flutterTts.setSpeechRate(0.5);
-        await flutterTts.setVolume(1.0);
-        await flutterTts.setPitch(1.0);
-        await flutterTts.speak(cleanContent);
-      }
-    } catch (e) {
-      // Handle error gracefully
-      print('TTS Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('TTS Error: Please rebuild the app. Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-        setState(() {
-          _isPlaying = false;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    flutterTts.stop();
-    super.dispose();
-  }
+  // TTS is handled by parent screen, bottom sheet just triggers it
 
   @override
   Widget build(BuildContext context) {
@@ -596,13 +774,18 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                     const SizedBox(height: 16),
                     // Audio playback section
                     GestureDetector(
-                      onTap: _toggleSpeech,
+                      onTap: () {
+                        // Close bottom sheet and start speech
+                        if (widget.onPlayTap != null) {
+                          widget.onPlayTap!();
+                        }
+                      },
                       child: Center(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Play/Pause button
+                            // Play button
                             Container(
                               width: 28,
                               height: 28,
@@ -612,11 +795,16 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               ),
                               child: Center(
                                 child: IconButton(
-                                  icon: Icon(
-                                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                                  icon: const Icon(
+                                    Icons.play_arrow,
                                     color: Colors.black,
                                   ),
-                                  onPressed: _toggleSpeech,
+                                  onPressed: () {
+                                    // Close bottom sheet and start speech
+                                    if (widget.onPlayTap != null) {
+                                      widget.onPlayTap!();
+                                    }
+                                  },
                                   iconSize: 14,
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
@@ -626,9 +814,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                             const SizedBox(width: 16),
                             // Text
                             Text(
-                              _isPlaying
-                                  ? "Tap to pause"
-                                  : "Tap 'Play' to start listening",
+                              "Tap 'Play' to start listening",
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
