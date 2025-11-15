@@ -42,6 +42,11 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   late ChapterModel _currentChapter;
   late int _currentChapterIndex;
 
+  // Theme settings
+  int _fontSizeMultiplier = 1; // 1 to 6 (base size * multiplier)
+  String _fontFamily = 'Default'; // Default, Times New Roman, etc.
+  String _themeMode = 'Default'; // Default, Light, Paper, Calm, Light blue
+
   // TTS state
   late FlutterTts flutterTts;
   bool _isPlaying = false;
@@ -540,6 +545,164 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     }
   }
 
+  TextStyle _getTextStyle({
+    required double fontSize,
+    required FontWeight fontWeight,
+    required Color color,
+    double? height,
+  }) {
+    final actualFontSize = fontSize * _fontSizeMultiplier;
+    final fontFamilyName = _fontFamily == 'Default' ? null : _fontFamily;
+
+    if (fontFamilyName == null) {
+      return GoogleFonts.poppins(
+        fontSize: actualFontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+      );
+    }
+
+    // Map font names to Google Fonts or system fonts
+    // Note: System fonts (Times New Roman, Arial, etc.) are usually available on iOS/Android
+    // For fonts that may not be available, we use Google Fonts or provide fallbacks
+    switch (fontFamilyName) {
+      case 'Times New Roman':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Times New Roman',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['serif'], // Fallback to serif if not available
+        );
+      case 'Georgia':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Georgia',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['serif'],
+        );
+      case 'Arial':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Arial',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['sans-serif'],
+        );
+      case 'Verdana':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Verdana',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['sans-serif'],
+        );
+      case 'Helvetica':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Helvetica',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['sans-serif'],
+        );
+      case 'Open Dyslexic':
+        // Not a system font - use Google Fonts or fallback
+        // Note: OpenDyslexic may not be available in Google Fonts, so we use fallback
+        return TextStyle(
+          fontFamily: 'OpenDyslexic',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: [
+            'Arial',
+            'sans-serif',
+          ], // Fallback if font not available
+        );
+      case 'Garamond':
+        // Use Google Fonts EB Garamond (similar to Garamond)
+        return GoogleFonts.ebGaramond(
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+        );
+      case 'Palatino':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Palatino',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['serif'],
+        );
+      case 'Courier New':
+        // System font - usually available on iOS/Android
+        return TextStyle(
+          fontFamily: 'Courier New',
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+          fontFamilyFallback: ['monospace'],
+        );
+      default:
+        return GoogleFonts.poppins(
+          fontSize: actualFontSize,
+          fontWeight: fontWeight,
+          color: color,
+          height: height,
+        );
+    }
+  }
+
+  Color _getBackgroundColor() {
+    switch (_themeMode) {
+      case 'Default':
+        return Colors.black;
+      case 'Light':
+        return Colors.white;
+      case 'Paper':
+        return const Color(0xFFF5F5DC); // Beige
+      case 'Calm':
+        return const Color(0xFFE8F5E9); // Light green
+      case 'Light blue':
+        return const Color(0xFFE3F2FD); // Light blue
+      default:
+        return Colors.black;
+    }
+  }
+
+  Color _getTextColor() {
+    switch (_themeMode) {
+      case 'Default':
+        return Colors.white;
+      case 'Light':
+        return Colors.black;
+      case 'Paper':
+        return Colors.black87;
+      case 'Calm':
+        return Colors.black87;
+      case 'Light blue':
+        return Colors.black87;
+      default:
+        return Colors.white;
+    }
+  }
+
   @override
   void dispose() {
     _hideTimer?.cancel();
@@ -551,8 +714,10 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = _getBackgroundColor();
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: backgroundColor,
       body: Stack(
         children: [
           // Content area
@@ -694,6 +859,27 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             allChapters: widget.allChapters,
             isPlaying: _isPlaying,
             workTitle: widget.workTitle,
+            fontSizeMultiplier: _fontSizeMultiplier,
+            fontFamily: _fontFamily,
+            themeMode: _themeMode,
+            onFontSizeChanged: (multiplier) {
+              setState(() {
+                _fontSizeMultiplier = multiplier;
+              });
+              setBottomSheetState(() {});
+            },
+            onFontFamilyChanged: (family) {
+              setState(() {
+                _fontFamily = family;
+              });
+              setBottomSheetState(() {});
+            },
+            onThemeModeChanged: (mode) {
+              setState(() {
+                _themeMode = mode;
+              });
+              setBottomSheetState(() {});
+            },
             onChapterTap: (index) {
               _updateChapter(index);
               // Update bottom sheet to show new chapter info
@@ -752,10 +938,10 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         } else {
           sentenceWidget = _buildTextWithHighlight(
             sentence,
-            GoogleFonts.poppins(
+            _getTextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: Colors.white,
+              color: _getTextColor(),
               height: 1.6,
             ),
             isCurrentSentence,
@@ -939,14 +1125,17 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     bool isCurrent,
     bool isDimmed,
   ) {
-    // If not playing, use normal white color
-    // If playing: current sentence is white, others are dimmed
+    // Get base text color from theme
+    final baseColor = _getTextColor();
+
+    // If not playing, use normal text color from theme
+    // If playing: current sentence is full color, others are dimmed
     return Text(
       text,
       style: style.copyWith(
         color: isCurrent
-            ? Colors.white
-            : (isDimmed ? Colors.white.withValues(alpha: 0.4) : Colors.white),
+            ? baseColor
+            : (isDimmed ? baseColor.withValues(alpha: 0.4) : baseColor),
       ),
     );
   }
@@ -1060,7 +1249,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         spans.add(
           TextSpan(
             text: beforeText,
-            style: GoogleFonts.poppins(
+            style: _getTextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: baseColor,
@@ -1075,7 +1264,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       spans.add(
         TextSpan(
           text: boldText,
-          style: GoogleFonts.poppins(
+          style: _getTextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: baseColor,
@@ -1093,7 +1282,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       spans.add(
         TextSpan(
           text: remainingText,
-          style: GoogleFonts.poppins(
+          style: _getTextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
             color: baseColor,
@@ -1106,7 +1295,12 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     return RichText(
       text: TextSpan(
         children: spans,
-        style: GoogleFonts.poppins(fontSize: 12, height: 1.6, color: baseColor),
+        style: _getTextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: baseColor,
+          height: 1.6,
+        ),
       ),
     );
   }
@@ -1213,6 +1407,12 @@ class _StoryMenuBottomSheet extends StatefulWidget {
   final Function(int)? onChapterTap;
   final VoidCallback? onPlayPauseTap;
   final String workTitle;
+  final int fontSizeMultiplier;
+  final String fontFamily;
+  final String themeMode;
+  final Function(int)? onFontSizeChanged;
+  final Function(String)? onFontFamilyChanged;
+  final Function(String)? onThemeModeChanged;
 
   const _StoryMenuBottomSheet({
     required this.chapterTitle,
@@ -1222,8 +1422,14 @@ class _StoryMenuBottomSheet extends StatefulWidget {
     required this.allChapters,
     required this.isPlaying,
     required this.workTitle,
+    required this.fontSizeMultiplier,
+    required this.fontFamily,
+    required this.themeMode,
     this.onChapterTap,
     this.onPlayPauseTap,
+    this.onFontSizeChanged,
+    this.onFontFamilyChanged,
+    this.onThemeModeChanged,
   });
 
   @override
@@ -1233,6 +1439,7 @@ class _StoryMenuBottomSheet extends StatefulWidget {
 class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
   // TTS is handled by parent screen, bottom sheet just triggers it
   bool _showChaptersList = false;
+  bool _showThemesList = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1243,7 +1450,9 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          height: _showChaptersList ? screenHeight * 0.7 : screenHeight * 0.43,
+          height: _showChaptersList || _showThemesList
+              ? screenHeight * 0.7
+              : screenHeight * 0.4,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.center,
@@ -1388,6 +1597,9 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                       title: 'Chapters',
                       onTap: () {
                         setState(() {
+                          if (_showThemesList) {
+                            _showThemesList = false;
+                          }
                           _showChaptersList = !_showChaptersList;
                         });
                       },
@@ -1501,17 +1713,260 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                       imagePath: 'assets/icons/ic_text_theme.png',
                       title: 'Themes',
                       onTap: () {
-                        // TODO: Handle themes
+                        setState(() {
+                          if (_showChaptersList) {
+                            _showChaptersList = false;
+                          }
+                          _showThemesList = !_showThemesList;
+                        });
                       },
                     ),
-                    const Divider(color: Colors.white24, height: 1),
-                    _buildMenuItem(
-                      svgPath: 'assets/icons/ic_header_robot.svg',
-                      title: 'AI Assistant',
-                      onTap: () {
-                        // TODO: Handle AI Assistant
-                      },
-                    ),
+                    // Themes section (shown when _showThemesList is true)
+                    if (_showThemesList) ...[
+                      const Divider(color: Colors.white24, height: 1),
+                      const SizedBox(height: 16),
+                      // Font Size Controls
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Decrease button
+                          GestureDetector(
+                            onTap:
+                                widget.fontSizeMultiplier > 1 &&
+                                    widget.onFontSizeChanged != null
+                                ? () {
+                                    widget.onFontSizeChanged!(
+                                      widget.fontSizeMultiplier - 1,
+                                    );
+                                  }
+                                : null,
+                            child: Container(
+                              width: 150,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: widget.fontSizeMultiplier > 1
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: widget.fontSizeMultiplier > 1
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.white.withValues(alpha: 0.1),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'A-',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: widget.fontSizeMultiplier > 1
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Increase button
+                          GestureDetector(
+                            onTap:
+                                widget.fontSizeMultiplier < 6 &&
+                                    widget.onFontSizeChanged != null
+                                ? () {
+                                    widget.onFontSizeChanged!(
+                                      widget.fontSizeMultiplier + 1,
+                                    );
+                                  }
+                                : null,
+                            child: Container(
+                              width: 150,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: widget.fontSizeMultiplier < 6
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: widget.fontSizeMultiplier < 6
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.white.withValues(alpha: 0.1),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'A+',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: widget.fontSizeMultiplier < 6
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Font Family Selection
+                      Text(
+                        'Default Font',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children:
+                              [
+                                'Default',
+                                'Times New Roman',
+                                'Georgia',
+                                'Arial',
+                                'Verdana',
+                                'Helvetica',
+                                'Open Dyslexic',
+                                'Garamond',
+                                'Palatino',
+                                'Courier New',
+                              ].map((font) {
+                                final isSelected = widget.fontFamily == font;
+                                return GestureDetector(
+                                  onTap: widget.onFontFamilyChanged != null
+                                      ? () {
+                                          widget.onFontFamilyChanged!(font);
+                                        }
+                                      : null,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.white.withValues(alpha: 0.2)
+                                          : Colors.transparent,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withValues(
+                                                alpha: 0.3,
+                                              ),
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        font,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.white.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Theme Mode Selection
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children:
+                            [
+                              'Default',
+                              'Light',
+                              'Paper',
+                              'Calm',
+                              'Light blue',
+                            ].map((theme) {
+                              final isSelected = widget.themeMode == theme;
+                              final isPremium = [
+                                'Paper',
+                                'Calm',
+                                'Light blue',
+                              ].contains(theme);
+                              return GestureDetector(
+                                onTap: widget.onThemeModeChanged != null
+                                    ? () {
+                                        widget.onThemeModeChanged!(theme);
+                                      }
+                                    : null,
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? Colors.green
+                                              : Colors.white.withValues(
+                                                  alpha: 0.3,
+                                                ),
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                        color: _getThemeColor(
+                                          theme,
+                                        ).withValues(alpha: 0.3),
+                                      ),
+                                      child: isPremium
+                                          ? Stack(
+                                              alignment: Alignment.topRight,
+                                              children: [
+                                                Center(
+                                                  child: Icon(
+                                                    Icons.star,
+                                                    color: Colors.yellow,
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      theme,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1520,6 +1975,23 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
         ),
       ),
     );
+  }
+
+  Color _getThemeColor(String theme) {
+    switch (theme) {
+      case 'Default':
+        return Colors.black;
+      case 'Light':
+        return Colors.white;
+      case 'Paper':
+        return const Color(0xFFF5F5DC); // Beige
+      case 'Calm':
+        return const Color(0xFFE8F5E9); // Light green
+      case 'Light blue':
+        return const Color(0xFFE3F2FD); // Light blue
+      default:
+        return Colors.black;
+    }
   }
 
   Widget _buildMenuItem({
