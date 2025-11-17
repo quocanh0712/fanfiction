@@ -24,13 +24,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedWorks();
+    _loadSavedWorks(isInitialLoad: true);
   }
 
-  Future<void> _loadSavedWorks() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _loadSavedWorks({bool isInitialLoad = false}) async {
+    if (isInitialLoad) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+    // Note: RefreshIndicator automatically shows loading indicator during refresh
 
     try {
       final savedWorks = await _savedWorksService.getSavedWorks();
@@ -167,9 +170,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Widget _buildSavedWorksList() {
     return RefreshIndicator(
-      onRefresh: _loadSavedWorks,
+      onRefresh: () => _loadSavedWorks(isInitialLoad: false),
       color: const Color(0xFF7d26cd),
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         itemCount: _filteredWorks.length,
         separatorBuilder: (context, index) => Padding(
@@ -193,7 +197,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onWorkTap: () async {
               // Reload saved works after potential unsave
               await Future.delayed(const Duration(milliseconds: 300));
-              _loadSavedWorks();
+              _loadSavedWorks(isInitialLoad: false);
             },
           );
         },

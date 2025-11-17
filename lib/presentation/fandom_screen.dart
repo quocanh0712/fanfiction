@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../services/fandom_service.dart';
 import '../models/fandom_model.dart';
 import '../widgets/sticky_header.dart';
+import '../widgets/loading_indicator.dart';
 
 class FandomScreen extends StatefulWidget {
   final String categoryId;
@@ -172,21 +173,29 @@ class _FandomScreenState extends State<FandomScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7d26cd)),
-      );
+      return const Center(child: LoadingIndicator(color: Color(0xFF7d26cd)));
     }
 
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Error loading fandoms',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.7),
+      return RefreshIndicator(
+        onRefresh: _loadFandoms,
+        color: const Color(0xFF7d26cd),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 200,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Error loading fandoms',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -194,28 +203,46 @@ class _FandomScreenState extends State<FandomScreen> {
     }
 
     if (_filteredFandoms.isEmpty) {
-      return Center(
-        child: Text(
-          'No fandoms available',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            color: Colors.white.withOpacity(0.7),
+      return RefreshIndicator(
+        onRefresh: _loadFandoms,
+        color: const Color(0xFF7d26cd),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 200,
+            child: Center(
+              child: Text(
+                'No fandoms available',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
           ),
         ),
       );
     }
 
-    return ListView.separated(
-      controller: _scrollController,
-      padding: EdgeInsets.zero,
-      itemCount: _filteredFandoms.length,
-      separatorBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: const Divider(color: Color(0xFF2A2A2A), thickness: 1, height: 1),
+    return RefreshIndicator(
+      onRefresh: _loadFandoms,
+      color: const Color(0xFF7d26cd),
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: EdgeInsets.zero,
+        itemCount: _filteredFandoms.length,
+        separatorBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: const Divider(
+            color: Color(0xFF2A2A2A),
+            thickness: 1,
+            height: 1,
+          ),
+        ),
+        itemBuilder: (context, index) {
+          return _buildFandomItem(_filteredFandoms[index]);
+        },
       ),
-      itemBuilder: (context, index) {
-        return _buildFandomItem(_filteredFandoms[index]);
-      },
     );
   }
 

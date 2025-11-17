@@ -229,26 +229,34 @@ class _WorkScreenState extends State<WorkScreen> {
       );
     }
 
-    return ListView.separated(
-      controller: _scrollController,
-      padding: EdgeInsets.zero,
-      itemCount: _filteredWorks.length,
-      separatorBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: const Divider(color: Color(0xFF2A2A2A), thickness: 1, height: 1),
+    return RefreshIndicator(
+      onRefresh: _loadWorks,
+      color: const Color(0xFF7d26cd),
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: EdgeInsets.zero,
+        itemCount: _filteredWorks.length,
+        separatorBuilder: (context, index) => Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: const Divider(
+            color: Color(0xFF2A2A2A),
+            thickness: 1,
+            height: 1,
+          ),
+        ),
+        itemBuilder: (context, index) {
+          final work = _filteredWorks[index];
+          return WorkItem(
+            work: work,
+            expandedTags: _expandedTags,
+            onTagExpanded: (workId) {
+              setState(() {
+                _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+              });
+            },
+          );
+        },
       ),
-      itemBuilder: (context, index) {
-        final work = _filteredWorks[index];
-        return WorkItem(
-          work: work,
-          expandedTags: _expandedTags,
-          onTagExpanded: (workId) {
-            setState(() {
-              _expandedTags[workId] = !(_expandedTags[workId] ?? false);
-            });
-          },
-        );
-      },
     );
   }
 }
