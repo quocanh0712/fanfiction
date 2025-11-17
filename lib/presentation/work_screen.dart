@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../services/work_service.dart';
 import '../models/work_model.dart';
 import '../widgets/sticky_header.dart';
-import 'work_detail_bottom_sheet.dart';
+import '../widgets/work_item.dart';
+import '../widgets/loading_indicator.dart';
 
 class WorkScreen extends StatefulWidget {
   final String categoryName;
@@ -197,9 +198,7 @@ class _WorkScreenState extends State<WorkScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7d26cd)),
-      );
+      return const Center(child: LoadingIndicator(color: Color(0xFF7d26cd)));
     }
 
     if (_error != null) {
@@ -239,216 +238,17 @@ class _WorkScreenState extends State<WorkScreen> {
         child: const Divider(color: Color(0xFF2A2A2A), thickness: 1, height: 1),
       ),
       itemBuilder: (context, index) {
-        return _buildWorkItem(_filteredWorks[index]);
-      },
-    );
-  }
-
-  Widget _buildWorkItem(WorkModel work) {
-    return InkWell(
-      onTap: () async {
-        if (!context.mounted) return;
-
-        // Show loading dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          barrierColor: Colors.black54,
-          builder: (dialogContext) => PopScope(
-            canPop: false,
-            child: const Center(
-              child: CircularProgressIndicator(color: Color(0xFF7d26cd)),
-            ),
-          ),
+        final work = _filteredWorks[index];
+        return WorkItem(
+          work: work,
+          expandedTags: _expandedTags,
+          onTagExpanded: (workId) {
+            setState(() {
+              _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+            });
+          },
         );
-
-        try {
-          final workContent = await _workService.getWorkContent(work.id);
-
-          // Close loading dialog - use rootNavigator to ensure it closes
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-
-          // Wait a bit to ensure dialog is fully closed
-          await Future.delayed(const Duration(milliseconds: 200));
-
-          // Show bottom sheet using root navigator to display above bottom nav bar
-          if (context.mounted) {
-            // Get root navigator context to show bottom sheet above everything
-            final rootContext = Navigator.of(
-              context,
-              rootNavigator: true,
-            ).context;
-            if (rootContext.mounted) {
-              showModalBottomSheet(
-                context: rootContext,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) =>
-                    WorkDetailBottomSheet(workContent: workContent),
-              );
-            }
-          }
-        } catch (e) {
-          // Close loading dialog on error - use rootNavigator
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-            // Show error
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error loading work: ${e.toString()}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title
-            Text(
-              work.title,
-              style: GoogleFonts.playfairDisplay(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            // Tags
-            if (work.tags.isNotEmpty) _buildTagsSection(work),
-            if (work.tags.isNotEmpty) const SizedBox(height: 12),
-            // Summary
-            Text(
-              work.summary,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: Colors.white.withOpacity(0.9),
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-            // Stats
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if (work.stats.language != null)
-                  _buildPillTag(work.stats.language!),
-                if (work.stats.chapters != null)
-                  _buildPillTag(work.stats.chapters!),
-                if (work.stats.words != null) _buildPillTag(work.stats.words!),
-                if (work.stats.collections != null)
-                  _buildPillTag(work.stats.collections!),
-                if (work.stats.comments != null)
-                  _buildPillTag(work.stats.comments!),
-                if (work.stats.kudos != null) _buildPillTag(work.stats.kudos!),
-                if (work.stats.hits != null) _buildPillTag(work.stats.hits!),
-                if (work.stats.bookmarks != null)
-                  _buildPillTag(work.stats.bookmarks!),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Author
-            Row(
-              children: [
-                Text(
-                  'by',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withOpacity(0.7),
-                  ),
-                ),
-                SizedBox(width: 5),
-                Text(
-                  work.author,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTagsSection(WorkModel work) {
-    final isExpanded = _expandedTags[work.id] ?? false;
-    final tagsCount = work.tags.length;
-
-    if (tagsCount <= 1) {
-      // Chỉ có 1 tag hoặc ít hơn, hiển thị trực tiếp
-      return Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: work.tags.map((tag) => _buildPillTag(tag)).toList(),
-      );
-    }
-
-    // Nhiều hơn 1 tag, hiển thị expandable với animation
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: isExpanded
-            ? [
-                // Đã mở rộng: hiển thị tất cả tags + nút collapse
-                ...work.tags.map((tag) => _buildPillTag(tag)),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _expandedTags[work.id] = false;
-                    });
-                  },
-                  child: _buildPillTag('Show less'),
-                ),
-              ]
-            : [
-                // Chưa mở rộng: hiển thị tag đầu tiên + nút "and X more"
-                _buildPillTag(work.tags[0]),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _expandedTags[work.id] = true;
-                    });
-                  },
-                  child: _buildPillTag('and ${tagsCount - 1} more...'),
-                ),
-              ],
-      ),
-    );
-  }
-
-  Widget _buildPillTag(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white, width: 0.5),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: Colors.white,
-        ),
-      ),
     );
   }
 }
