@@ -312,7 +312,7 @@ class _WorkScreenState extends State<WorkScreen> {
             // Title
             Text(
               work.title,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.playfairDisplay(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,

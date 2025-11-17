@@ -768,8 +768,32 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                       vertical: 12,
                     ),
                     child: Stack(
-                      alignment: Alignment.center,
                       children: [
+                        // Title centered - always full width, not affected by buttons
+                        Positioned(
+                          top: 50,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: SizedBox(
+                              width:
+                                  MediaQuery.of(context).size.width -
+                                  32 -
+                                  96, // padding + space for buttons
+                              child: Text(
+                                _currentChapter.title,
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getTextColor(),
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
                         // Pause button on the left (only show when playing)
                         if (_isPlaying)
                           Positioned(
@@ -783,34 +807,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                               constraints: const BoxConstraints(),
                             ),
                           ),
-                        // Title centered with fixed width
-                        Positioned(
-                          top: 50,
-                          left: _isPlaying ? 40 : 0,
-                          right: 0,
-                          child: Center(
-                            child: SizedBox(
-                              width:
-                                  MediaQuery.of(context).size.width -
-                                  32 - // padding left + right
-                                  48 - // IconButton width
-                                  (_isPlaying ? 40 : 0) - // Pause button width
-                                  16, // margin
-                              child: Text(
-                                _currentChapter.title,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getTextColor(),
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Close button aligned to right and same height as title
+                        // Close button aligned to right
                         Positioned(
                           top: 37,
                           right: 0,

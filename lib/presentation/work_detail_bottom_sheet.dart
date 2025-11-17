@@ -63,7 +63,7 @@ class _WorkDetailBottomSheetState extends State<WorkDetailBottomSheet>
                 // Title
                 Text(
                   widget.workContent.title,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.playfairDisplay(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
