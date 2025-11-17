@@ -43,7 +43,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   late int _currentChapterIndex;
 
   // Theme settings
-  int _fontSizeMultiplier = 1; // 1 to 6 (base size * multiplier)
+  int _fontSizeOffset = 0; // 0 to 10 (default 10, each increment adds 2)
   String _fontFamily = 'Default'; // Default, Times New Roman, etc.
   String _themeMode = 'Default'; // Default, Light, Paper, Calm, Light blue
 
@@ -578,7 +578,8 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     required Color color,
     double? height,
   }) {
-    final actualFontSize = fontSize * _fontSizeMultiplier;
+    // Base size is 10, each increment adds 2
+    final actualFontSize = fontSize + _fontSizeOffset;
     final fontFamilyName = _fontFamily == 'Default' ? null : _fontFamily;
 
     if (fontFamilyName == null) {
@@ -897,12 +898,12 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             allChapters: widget.allChapters,
             isPlaying: _isPlaying,
             workTitle: widget.workTitle,
-            fontSizeMultiplier: _fontSizeMultiplier,
+            fontSizeMultiplier: _fontSizeOffset,
             fontFamily: _fontFamily,
             themeMode: _themeMode,
-            onFontSizeChanged: (multiplier) {
+            onFontSizeChanged: (offset) {
               setState(() {
-                _fontSizeMultiplier = multiplier;
+                _fontSizeOffset = offset;
               });
               setBottomSheetState(() {});
             },
@@ -982,7 +983,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           sentenceWidget = _buildTextWithHighlight(
             sentence,
             _getTextStyle(
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: FontWeight.w400,
               color: _getTextColor(),
               height: 1.6,
@@ -1338,7 +1339,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           TextSpan(
             text: beforeText,
             style: _getTextStyle(
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: FontWeight.w400,
               color: baseColor,
               height: 1.6,
@@ -1353,7 +1354,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
         TextSpan(
           text: boldText,
           style: _getTextStyle(
-            fontSize: 12,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
             color: baseColor,
             height: 1.6,
@@ -1820,11 +1821,11 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                           // Decrease button
                           GestureDetector(
                             onTap:
-                                widget.fontSizeMultiplier > 1 &&
+                                widget.fontSizeMultiplier > 0 &&
                                     widget.onFontSizeChanged != null
                                 ? () {
                                     widget.onFontSizeChanged!(
-                                      widget.fontSizeMultiplier - 1,
+                                      widget.fontSizeMultiplier - 2,
                                     );
                                   }
                                 : null,
@@ -1832,11 +1833,11 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               width: 150,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: widget.fontSizeMultiplier > 1
+                                color: widget.fontSizeMultiplier > 0
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : Colors.transparent,
                                 border: Border.all(
-                                  color: widget.fontSizeMultiplier > 1
+                                  color: widget.fontSizeMultiplier > 0
                                       ? Colors.white.withValues(alpha: 0.3)
                                       : Colors.white.withValues(alpha: 0.1),
                                   width: 1,
@@ -1849,7 +1850,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: widget.fontSizeMultiplier > 1
+                                    color: widget.fontSizeMultiplier > 0
                                         ? Colors.white
                                         : Colors.white.withValues(alpha: 0.3),
                                   ),
@@ -1861,11 +1862,11 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                           // Increase button
                           GestureDetector(
                             onTap:
-                                widget.fontSizeMultiplier < 6 &&
+                                widget.fontSizeMultiplier < 10 &&
                                     widget.onFontSizeChanged != null
                                 ? () {
                                     widget.onFontSizeChanged!(
-                                      widget.fontSizeMultiplier + 1,
+                                      widget.fontSizeMultiplier + 2,
                                     );
                                   }
                                 : null,
@@ -1873,11 +1874,11 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               width: 150,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: widget.fontSizeMultiplier < 6
+                                color: widget.fontSizeMultiplier < 10
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : Colors.transparent,
                                 border: Border.all(
-                                  color: widget.fontSizeMultiplier < 6
+                                  color: widget.fontSizeMultiplier < 10
                                       ? Colors.white.withValues(alpha: 0.3)
                                       : Colors.white.withValues(alpha: 0.1),
                                   width: 1,
@@ -1890,7 +1891,7 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: widget.fontSizeMultiplier < 6
+                                    color: widget.fontSizeMultiplier < 10
                                         ? Colors.white
                                         : Colors.white.withValues(alpha: 0.3),
                                   ),
