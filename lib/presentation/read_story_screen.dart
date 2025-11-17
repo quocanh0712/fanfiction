@@ -117,12 +117,39 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     // Re-parse content for new chapter
     _parseContent();
 
-    // Scroll to top
+    // Scroll to top after content is rendered
+    // Wait for ListView to rebuild with new content before scrolling
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // First, try immediate scroll
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(0);
       }
+
+      // Then wait for ListView to rebuild and try again with _scrollToTop
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _scrollToTop();
+        }
+      });
+
+      // One more attempt after longer delay to ensure it works
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.jumpTo(0);
+        }
+      });
     });
+  }
+
+  void _popToPreviousScreen() {
+    // Since we're now updating chapters in-place instead of pushing new screens,
+    // we only need to pop once to return to the bottom sheet
+    if (!context.mounted) return;
+
+    // Simply pop once to go back to previous screen (bottom sheet)
+    if (Navigator.of(context).canPop()) {
+      context.pop();
+    }
   }
 
   void _initTts() {
@@ -813,7 +840,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
                           right: 0,
                           child: IconButton(
                             icon: Icon(Icons.close, color: _getTextColor()),
-                            onPressed: () => context.pop(),
+                            onPressed: () => _popToPreviousScreen(),
                             iconSize: 24,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -1002,30 +1029,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
               // Pop back to previous screen
               context.pop();
             } else if (hasNextChapter) {
-              // Navigate to next chapter and replace current in stack
+              // Update to next chapter without pushing new screen
               final nextChapterIndex = _currentChapterIndex + 1;
-              final nextChapter = widget.allChapters[nextChapterIndex];
-
-              // Pop current chapter first to remove it from stack
-              // Then push new chapter
-              context.pop();
-
-              // Use Future.microtask to ensure pop completes before push
-              Future.microtask(() {
-                if (context.mounted) {
-                  context.push(
-                    '/read-story',
-                    extra: {
-                      'chapter': nextChapter,
-                      'workTitle': widget.workTitle,
-                      'author': widget.author,
-                      'currentChapterIndex': nextChapterIndex,
-                      'totalChapters': widget.totalChapters,
-                      'allChapters': widget.allChapters,
-                    },
-                  );
-                }
-              });
+              _updateChapter(nextChapterIndex);
             }
           },
           style: TextButton.styleFrom(
