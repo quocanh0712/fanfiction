@@ -16,8 +16,10 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   final SavedWorksService _savedWorksService = SavedWorksService();
   List<WorkModel> _savedWorks = [];
+  List<WorkModel> _filteredWorks = [];
   bool _isLoading = true;
   final Map<String, bool> _expandedTags = {};
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -35,8 +37,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (mounted) {
         setState(() {
           _savedWorks = savedWorks;
+          _filteredWorks = savedWorks;
           _isLoading = false;
         });
+        _filterWorks(_searchQuery);
       }
     } catch (e) {
       if (mounted) {
@@ -47,13 +51,42 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
   }
 
+  void _filterWorks(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredWorks = _savedWorks;
+      } else {
+        final lowerQuery = query.toLowerCase().trim();
+        _filteredWorks = _savedWorks.where((work) {
+          // Search by title
+          if (work.title.toLowerCase().contains(lowerQuery)) {
+            return true;
+          }
+          // Search by author
+          if (work.author.toLowerCase().contains(lowerQuery)) {
+            return true;
+          }
+          // Search by tags
+          if (work.tags.any((tag) => tag.toLowerCase().contains(lowerQuery))) {
+            return true;
+          }
+          return false;
+        }).toList();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(),
+          AppHeader(
+            onSearchChanged: _filterWorks,
+            searchHint: 'Search works, tags...',
+          ),
 
           // Content
           Expanded(
@@ -61,7 +94,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ? const Center(
                     child: LoadingIndicator(color: Color(0xFF7d26cd)),
                   )
-                : _savedWorks.isEmpty
+                : _filteredWorks.isEmpty
                 ? _buildEmptyState()
                 : _buildSavedWorksList(),
           ),
@@ -138,7 +171,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       color: const Color(0xFF7d26cd),
       child: ListView.separated(
         padding: EdgeInsets.zero,
-        itemCount: _savedWorks.length,
+        itemCount: _filteredWorks.length,
         separatorBuilder: (context, index) => Padding(
           padding: const EdgeInsets.only(left: 16),
           child: const Divider(
@@ -148,7 +181,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
         itemBuilder: (context, index) {
-          final work = _savedWorks[index];
+          final work = _filteredWorks[index];
           return WorkItem(
             work: work,
             expandedTags: _expandedTags,
