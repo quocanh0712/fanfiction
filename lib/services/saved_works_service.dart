@@ -11,13 +11,36 @@ class SavedWorksService {
       final prefs = await SharedPreferences.getInstance();
       final savedWorksJson = prefs.getStringList(_savedWorksKey) ?? [];
 
-      return savedWorksJson
+      final works = savedWorksJson
           .map(
             (jsonString) => WorkModel.fromJson(
               json.decode(jsonString) as Map<String, dynamic>,
             ),
           )
           .toList();
+
+      // Remove duplicates by keeping only the first occurrence of each work ID
+      final seenIds = <String>{};
+      final uniqueWorks = <WorkModel>[];
+      for (final work in works) {
+        if (!seenIds.contains(work.id)) {
+          seenIds.add(work.id);
+          uniqueWorks.add(work);
+        }
+      }
+
+      // If duplicates were found, save the deduplicated list back
+      if (works.length != uniqueWorks.length) {
+        print(
+          '⚠️ Found ${works.length - uniqueWorks.length} duplicate(s) in saved works, removing...',
+        );
+        final uniqueWorksJson = uniqueWorks
+            .map((work) => json.encode(work.toJson()))
+            .toList();
+        await prefs.setStringList(_savedWorksKey, uniqueWorksJson);
+      }
+
+      return uniqueWorks;
     } catch (e) {
       print('Error loading saved works: $e');
       return [];
@@ -65,7 +88,16 @@ class SavedWorksService {
   Future<bool> removeWork(String workId) async {
     try {
       final savedWorks = await getSavedWorks();
-      savedWorks.removeWhere((work) => work.id == workId);
+
+      // Find the FIRST matching index and remove only ONE item
+      // This prevents removing multiple items if there are duplicate IDs
+      final index = savedWorks.indexWhere((work) => work.id == workId);
+      if (index != -1) {
+        savedWorks.removeAt(index);
+      } else {
+        // Work not found, but return true to avoid errors
+        return true;
+      }
 
       // Save to SharedPreferences
       final prefs = await SharedPreferences.getInstance();

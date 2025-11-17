@@ -20,6 +20,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   bool _isLoading = true;
   final Map<String, bool> _expandedTags = {};
   String _searchQuery = '';
+  GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
   @override
   void initState() {
@@ -42,6 +43,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _savedWorks = savedWorks;
           _filteredWorks = savedWorks;
           _isLoading = false;
+          // Force rebuild AnimatedList on reload by creating new key
+          if (!isInitialLoad) {
+            _listKey = GlobalKey<AnimatedListState>();
+          }
         });
         _filterWorks(_searchQuery);
       }
@@ -55,6 +60,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _filterWorks(String query) {
+    print('🔍 _filterWorks called with query: "$query"');
+    print('📊 BEFORE FILTER - _savedWorks.length: ${_savedWorks.length}');
+    print('📊 BEFORE FILTER - _filteredWorks.length: ${_filteredWorks.length}');
+
     setState(() {
       _searchQuery = query;
       if (query.isEmpty) {
@@ -78,6 +87,136 @@ class _LibraryScreenState extends State<LibraryScreen> {
         }).toList();
       }
     });
+
+    print('📊 AFTER FILTER - _filteredWorks.length: ${_filteredWorks.length}');
+    print(
+      '📋 AFTER FILTER - _filteredWorks IDs: ${_filteredWorks.map((w) => w.id).toList()}',
+    );
+  }
+
+  void _removeWork(String workId) {
+    print('🔄 _removeWork called with workId: $workId');
+    print('📊 BEFORE REMOVE - _savedWorks.length: ${_savedWorks.length}');
+    print('📊 BEFORE REMOVE - _filteredWorks.length: ${_filteredWorks.length}');
+    print(
+      '📋 BEFORE REMOVE - _savedWorks IDs: ${_savedWorks.map((w) => w.id).toList()}',
+    );
+    print(
+      '📋 BEFORE REMOVE - _filteredWorks IDs: ${_filteredWorks.map((w) => w.id).toList()}',
+    );
+
+    // Find the index in filtered list
+    final index = _filteredWorks.indexWhere((work) => work.id == workId);
+    print('📍 Found index: $index (total items: ${_filteredWorks.length})');
+
+    if (index == -1) {
+      print('❌ Work not found in filtered list');
+      return;
+    }
+
+    // Safety check: ensure index is valid
+    if (index < 0 || index >= _filteredWorks.length) {
+      print('❌ Invalid index: $index (list length: ${_filteredWorks.length})');
+      return;
+    }
+
+    // Get the work to remove BEFORE removing from list
+    final removedWork = _filteredWorks[index];
+    final isOnlyItem = _filteredWorks.length == 1;
+    print('📦 Removing work: ${removedWork.title}');
+    print('📊 Is only item: $isOnlyItem');
+
+    // Count how many items will be removed from _savedWorks
+    final beforeSavedCount = _savedWorks.length;
+    final matchingSavedCount = _savedWorks
+        .where((work) => work.id == workId)
+        .length;
+    print('🔍 Found $matchingSavedCount item(s) with workId in _savedWorks');
+
+    // Remove from _filteredWorks FIRST (using the known index)
+    _filteredWorks.removeAt(index);
+    print(
+      '✅ Removed from _filteredWorks at index $index. New length: ${_filteredWorks.length}',
+    );
+
+    // Remove from _savedWorks - find the FIRST matching index and remove only ONE item
+    final savedIndex = _savedWorks.indexWhere((work) => work.id == workId);
+    if (savedIndex != -1) {
+      _savedWorks.removeAt(savedIndex);
+      print(
+        '✅ Removed from _savedWorks at index $savedIndex. New length: ${_savedWorks.length}',
+      );
+    } else {
+      print('⚠️ Work not found in _savedWorks (should not happen)');
+    }
+
+    print(
+      '📊 AFTER REMOVE - _savedWorks.length: ${_savedWorks.length} (removed ${beforeSavedCount - _savedWorks.length} items)',
+    );
+    print('📊 AFTER REMOVE - _filteredWorks.length: ${_filteredWorks.length}');
+    print(
+      '📋 AFTER REMOVE - _savedWorks IDs: ${_savedWorks.map((w) => w.id).toList()}',
+    );
+    print(
+      '📋 AFTER REMOVE - _filteredWorks IDs: ${_filteredWorks.map((w) => w.id).toList()}',
+    );
+
+    // Animate removal using AnimatedList
+    // Skip animation for last/only item to avoid index issues
+    if (!isOnlyItem && _listKey.currentState != null) {
+      print('🎬 Attempting to animate removal at index: $index');
+      try {
+        _listKey.currentState!.removeItem(
+          index,
+          (context, animation) =>
+              _buildAnimatedRemovalItem(removedWork, animation),
+          duration: const Duration(milliseconds: 300),
+        );
+        print('✅ Animation started successfully');
+      } catch (e) {
+        // If animation fails, force rebuild AnimatedList
+        print('❌ Error during animation: $e');
+        print('🔄 Rebuilding AnimatedList...');
+        _listKey = GlobalKey<AnimatedListState>();
+      }
+    } else {
+      // For last/only item, rebuild AnimatedList completely
+      print(
+        '🔄 Rebuilding AnimatedList (isOnlyItem: $isOnlyItem, hasState: ${_listKey.currentState != null})',
+      );
+      _listKey = GlobalKey<AnimatedListState>();
+    }
+
+    // Update state
+    print('🔄 Calling setState...');
+    setState(() {});
+    print('✅ _removeWork completed');
+  }
+
+  Widget _buildAnimatedRemovalItem(
+    WorkModel work,
+    Animation<double> animation,
+  ) {
+    return SizeTransition(
+      sizeFactor: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+      child: FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+        child: WorkItem(
+          work: work,
+          expandedTags: _expandedTags,
+          onTagExpanded: (workId) {
+            setState(() {
+              _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+            });
+          },
+          onWorkTap: () async {
+            await Future.delayed(const Duration(milliseconds: 300));
+            _loadSavedWorks(isInitialLoad: false);
+          },
+          onUnsaved: _removeWork,
+        ),
+      ),
+    );
   }
 
   @override
@@ -172,33 +311,47 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return RefreshIndicator(
       onRefresh: () => _loadSavedWorks(isInitialLoad: false),
       color: const Color(0xFF7d26cd),
-      child: ListView.separated(
+      child: AnimatedList(
+        key: _listKey,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
-        itemCount: _filteredWorks.length,
-        separatorBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: const Divider(
-            color: Color(0xFF2A2A2A),
-            thickness: 1,
-            height: 1,
-          ),
-        ),
-        itemBuilder: (context, index) {
+        initialItemCount: _filteredWorks.length,
+        itemBuilder: (context, index, animation) {
+          // Safety check: ensure index is valid
+          if (index < 0 || index >= _filteredWorks.length) {
+            return const SizedBox.shrink();
+          }
+
           final work = _filteredWorks[index];
-          return WorkItem(
-            work: work,
-            expandedTags: _expandedTags,
-            onTagExpanded: (workId) {
-              setState(() {
-                _expandedTags[workId] = !(_expandedTags[workId] ?? false);
-              });
-            },
-            onWorkTap: () async {
-              // Reload saved works after potential unsave
-              await Future.delayed(const Duration(milliseconds: 300));
-              _loadSavedWorks(isInitialLoad: false);
-            },
+          return Column(
+            children: [
+              WorkItem(
+                key: ValueKey(
+                  work.id,
+                ), // Use ValueKey for proper item identification
+                work: work,
+                expandedTags: _expandedTags,
+                onTagExpanded: (workId) {
+                  setState(() {
+                    _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+                  });
+                },
+                onWorkTap: () async {
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  _loadSavedWorks(isInitialLoad: false);
+                },
+                onUnsaved: _removeWork,
+              ),
+              if (index < _filteredWorks.length - 1)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: const Divider(
+                    color: Color(0xFF2A2A2A),
+                    thickness: 1,
+                    height: 1,
+                  ),
+                ),
+            ],
           );
         },
       ),

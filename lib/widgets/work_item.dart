@@ -12,6 +12,7 @@ class WorkItem extends StatefulWidget {
   final Map<String, bool>? expandedTags;
   final Function(String)? onTagExpanded;
   final VoidCallback? onWorkTap;
+  final Function(String)? onUnsaved; // Callback when work is unsaved
 
   const WorkItem({
     super.key,
@@ -19,6 +20,7 @@ class WorkItem extends StatefulWidget {
     this.expandedTags,
     this.onTagExpanded,
     this.onWorkTap,
+    this.onUnsaved,
   });
 
   @override
@@ -48,11 +50,33 @@ class _WorkItemState extends State<WorkItem> {
   }
 
   Future<void> _toggleSave() async {
+    print(
+      '💾 _toggleSave called for work: ${widget.work.title} (id: ${widget.work.id})',
+    );
+    final wasSaved = _isSaved;
+    print('📊 Current saved state: $wasSaved');
+
     final success = await _savedWorksService.toggleSaveWork(widget.work);
+    print('✅ Toggle result: $success');
+
     if (success && mounted) {
       setState(() {
         _isSaved = !_isSaved;
       });
+      print('📊 New saved state: $_isSaved');
+
+      // If work was saved and now unsaved, notify parent
+      if (wasSaved && !_isSaved && widget.onUnsaved != null) {
+        print('🔔 Notifying parent that work was unsaved: ${widget.work.id}');
+        widget.onUnsaved!(widget.work.id);
+        print('✅ Callback executed');
+      } else {
+        print(
+          'ℹ️ Not calling onUnsaved (wasSaved: $wasSaved, isSaved: $_isSaved, hasCallback: ${widget.onUnsaved != null})',
+        );
+      }
+    } else {
+      print('❌ Toggle failed or widget not mounted');
     }
   }
 
