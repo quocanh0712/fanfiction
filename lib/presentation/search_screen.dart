@@ -11,7 +11,10 @@ class SearchScreen extends StatelessWidget {
       color: Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(),
+          const AppHeader(
+            title: 'Search',
+            isHaveIcon: false,
+          ),
           Expanded(
             child: Center(
               child: Text(

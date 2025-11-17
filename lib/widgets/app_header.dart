@@ -71,13 +71,17 @@ class _AppHeaderState extends State<AppHeader> {
         const Divider(color: Colors.white24, height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _isSearchMode ? const SizedBox(width: 20) : _buildLeftIcon(),
-              _isSearchMode ? _buildSearchField() : _buildTitle(),
-              _buildRightAction(),
-            ],
+          child: SizedBox(
+            height: 30, // Fixed height to prevent Row from expanding
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _isSearchMode ? const SizedBox(width: 20) : _buildLeftIcon(),
+                _isSearchMode ? _buildSearchField() : _buildTitle(),
+                _buildRightAction(),
+              ],
+            ),
           ),
         ),
         const Divider(color: Colors.white24, height: 12),
@@ -102,12 +106,15 @@ class _AppHeaderState extends State<AppHeader> {
   }
 
   Widget _buildTitle() {
-    final titleWidget = Text(
-      widget.title,
-      style: GoogleFonts.playfairDisplay(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+    final titleWidget = Padding(
+      padding: const EdgeInsets.only(bottom:3),
+      child: Text(
+        widget.title,
+        style: GoogleFonts.playfairDisplay(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
       ),
     );
 
@@ -124,6 +131,7 @@ class _AppHeaderState extends State<AppHeader> {
         onChanged: _onSearchChanged,
         style: GoogleFonts.poppins(fontSize: 12, color: Colors.white),
         cursorColor: Colors.white,
+        textAlignVertical: TextAlignVertical.center,
         decoration: InputDecoration(
           hintText: widget.searchHint ?? 'Search works, tags...',
           hintStyle: GoogleFonts.poppins(
@@ -134,6 +142,7 @@ class _AppHeaderState extends State<AppHeader> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           contentPadding: EdgeInsets.zero,
+          isDense: true,
         ),
       ),
     );
