@@ -931,8 +931,13 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       physics: const ClampingScrollPhysics(),
       padding: EdgeInsets.zero,
       cacheExtent: 500, // Cache more items for smoother scrolling
-      itemCount: _sentences.length,
+      itemCount: _sentences.length + 1, // +1 for Next Chapter button
       itemBuilder: (context, index) {
+        // Last item is the Next Chapter button
+        if (index == _sentences.length) {
+          return _buildNextChapterButton();
+        }
+
         final sentence = _sentences[index];
         // Only highlight when playing, otherwise all sentences are normal white
         final isCurrentSentence = _isPlaying && _currentSentenceIndex == index;
@@ -980,6 +985,72 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildNextChapterButton() {
+    final hasNextChapter = _currentChapterIndex < widget.allChapters.length - 1;
+    final isLastChapter = _currentChapterIndex == widget.allChapters.length - 1;
+    final isSingleChapter = widget.totalChapters == 1;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 15, bottom: 32),
+      child: Center(
+        child: TextButton(
+          onPressed: () {
+            if (isSingleChapter || isLastChapter) {
+              // Pop back to previous screen
+              context.pop();
+            } else if (hasNextChapter) {
+              // Navigate to next chapter and replace current in stack
+              final nextChapterIndex = _currentChapterIndex + 1;
+              final nextChapter = widget.allChapters[nextChapterIndex];
+
+              // Pop current chapter first to remove it from stack
+              // Then push new chapter
+              context.pop();
+
+              // Use Future.microtask to ensure pop completes before push
+              Future.microtask(() {
+                if (context.mounted) {
+                  context.push(
+                    '/read-story',
+                    extra: {
+                      'chapter': nextChapter,
+                      'workTitle': widget.workTitle,
+                      'author': widget.author,
+                      'currentChapterIndex': nextChapterIndex,
+                      'totalChapters': widget.totalChapters,
+                      'allChapters': widget.allChapters,
+                    },
+                  );
+                }
+              });
+            }
+          },
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+              side: BorderSide(
+                color: _getTextColor().withOpacity(0.5),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Text(
+            isSingleChapter || isLastChapter
+                ? 'That\'s it, let\'s explore other stories'
+                : 'Next Chapter',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _getTextColor(),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 
