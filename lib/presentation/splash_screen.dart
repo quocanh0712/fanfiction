@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import '../services/app_preferences_service.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
-  void _navigateToHome(BuildContext context) {
-    context.go('/home/library');
+  Future<void> _navigateToHome(BuildContext context) async {
+    // Mark that first launch is complete
+    final appPreferencesService = AppPreferencesService();
+    await appPreferencesService.setFirstLaunchComplete();
+
+    // Navigate to home
+    if (context.mounted) {
+      context.go('/home/library');
+    }
   }
 
   @override
@@ -80,7 +88,7 @@ class SplashScreen extends StatelessWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => _navigateToHome(context),
+                onTap: () async => await _navigateToHome(context),
                 borderRadius: BorderRadius.circular(30),
                 child: Center(
                   child: Text(

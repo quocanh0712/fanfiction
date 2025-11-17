@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
+import '../services/app_preferences_service.dart';
+import '../widgets/loading_indicator.dart';
 
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
@@ -17,6 +19,7 @@ class _AppInitializerState extends State<AppInitializer>
   late final Animation<double> _scale;
   late final Animation<double> _offset;
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final AppPreferencesService _appPreferencesService = AppPreferencesService();
 
   @override
   void initState() {
@@ -48,18 +51,33 @@ class _AppInitializerState extends State<AppInitializer>
         // Load critical data
         await _categoryRepository.loadCategories();
 
+        // Check if this is first launch
+        final isFirstLaunch = await _appPreferencesService.isFirstLaunch();
+
         // Wait minimum 1 second for better UX
         await Future.delayed(const Duration(milliseconds: 700));
 
         if (mounted) {
-          _navigateToSplash();
+          if (isFirstLaunch) {
+            // First launch -> show SplashScreen
+            _navigateToSplash();
+          } else {
+            // Not first launch -> skip SplashScreen, go directly to home
+            _navigateToHome();
+          }
         }
       } catch (e) {
-        // Even if error, navigate to splash
-        // Categories can be loaded later
+        // Even if error, check first launch and navigate accordingly
         if (mounted) {
           await Future.delayed(const Duration(milliseconds: 500));
-          _navigateToSplash();
+          final isFirstLaunch = await _appPreferencesService.isFirstLaunch();
+          if (mounted) {
+            if (isFirstLaunch) {
+              _navigateToSplash();
+            } else {
+              _navigateToHome();
+            }
+          }
         }
       }
     }
@@ -67,6 +85,10 @@ class _AppInitializerState extends State<AppInitializer>
 
   void _navigateToSplash() {
     context.go('/');
+  }
+
+  void _navigateToHome() {
+    context.go('/home/library');
   }
 
   @override
@@ -199,14 +221,7 @@ class _AppInitializerState extends State<AppInitializer>
                   const SizedBox(height: 40),
 
                   // Loading indicator
-                  const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF7d26cd),
-                      strokeWidth: 3,
-                    ),
-                  ),
+                  const LoadingIndicator(size: 40, color: Color(0xFF7d26cd)),
                 ],
               ),
             ),
