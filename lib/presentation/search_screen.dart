@@ -32,6 +32,8 @@ class _SearchScreenState extends State<SearchScreen> {
   int _totalResults = 0;
   String? _error;
   final Map<String, bool> _expandedTags = {};
+  String _lastSearchQuery =
+      ''; // Track last search query to prevent duplicate calls
 
   @override
   void initState() {
@@ -72,13 +74,23 @@ class _SearchScreenState extends State<SearchScreen> {
         _currentPage = 1;
         _hasMorePages = false;
         _totalResults = 0;
+        _lastSearchQuery = '';
       });
+      return;
+    }
+
+    // Only search if query actually changed (not just focus)
+    if (query == _lastSearchQuery) {
       return;
     }
 
     // Debounce search API call
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      _performSearch(query, page: 1);
+      // Double check query hasn't changed during debounce
+      final currentQuery = _searchController.text.trim();
+      if (currentQuery.isNotEmpty && currentQuery != _lastSearchQuery) {
+        _performSearch(currentQuery, page: 1);
+      }
     });
   }
 
@@ -105,6 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
           if (page == 1) {
             _searchResults = response.works;
             _totalResults = response.totalResults;
+            _lastSearchQuery = query; // Update last search query
           } else {
             _searchResults.addAll(response.works);
           }
@@ -126,13 +139,19 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onScroll() {
+    // Only check scroll position if we have valid scroll metrics
+    if (!_scrollController.hasClients) return;
+
     // Load more when scrolling near bottom
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
+      final query = _searchController.text.trim();
       if (!_isLoadingMore &&
           _hasMorePages &&
-          _searchController.text.trim().isNotEmpty) {
-        _performSearch(_searchController.text.trim(), page: _currentPage + 1);
+          query.isNotEmpty &&
+          query == _lastSearchQuery) {
+        // Only load more if query matches last search
+        _performSearch(query, page: _currentPage + 1);
       }
     }
   }
@@ -173,24 +192,12 @@ class _SearchScreenState extends State<SearchScreen> {
               );
             },
             child: hasSearchQuery
-                ? Column(
+                ? Padding(
                     key: const ValueKey('search-input-top'),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        child: _buildSearchInput(),
-                      ),
-                      // Results count
-                      if (_totalResults > 0)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: _buildResultsCount(),
-                        ),
-                    ],
+                    padding: const EdgeInsets.fromLTRB(20,16,20,10
+
+                    ),
+                    child: _buildSearchInput(),
                   )
                 : const SizedBox.shrink(key: ValueKey('search-input-hidden')),
           ),
@@ -314,40 +321,56 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       );
     } else {
-      content = ListView.separated(
-        controller: _scrollController,
-        padding: EdgeInsets.zero,
-        itemCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
-        separatorBuilder: (context, index) {
-          if (index >= _searchResults.length) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: const Divider(
-              color: Color(0xFF2A2A2A),
-              thickness: 1,
-              height: 1,
+      content = Column(
+        children: [
+          // Results count - above search results
+          if (_totalResults > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: _buildResultsCount(),
             ),
-          );
-        },
-        itemBuilder: (context, index) {
-          if (index >= _searchResults.length) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: LoadingIndicator(color: Color(0xFF7d26cd))),
-            );
-          }
+          // Search results list
+          Expanded(
+            child: ListView.separated(
+              controller: _scrollController,
+              padding: EdgeInsets.zero,
+              itemCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
+              separatorBuilder: (context, index) {
+                if (index >= _searchResults.length)
+                  return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: const Divider(
+                    color: Color(0xFF2A2A2A),
+                    thickness: 1,
+                    height: 1,
+                  ),
+                );
+              },
+              itemBuilder: (context, index) {
+                if (index >= _searchResults.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: LoadingIndicator(color: Color(0xFF7d26cd)),
+                    ),
+                  );
+                }
 
-          final work = _searchResults[index];
-          return WorkItem(
-            work: work,
-            expandedTags: _expandedTags,
-            onTagExpanded: (workId) {
-              setState(() {
-                _expandedTags[workId] = !(_expandedTags[workId] ?? false);
-              });
-            },
-          );
-        },
+                final work = _searchResults[index];
+                return WorkItem(
+                  work: work,
+                  expandedTags: _expandedTags,
+                  onTagExpanded: (workId) {
+                    setState(() {
+                      _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       );
     }
 
