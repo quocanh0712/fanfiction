@@ -29,6 +29,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isLoadingMore = false;
   int _currentPage = 1;
   bool _hasMorePages = false;
+  int _totalResults = 0;
   String? _error;
   final Map<String, bool> _expandedTags = {};
 
@@ -70,6 +71,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _isSearching = false;
         _currentPage = 1;
         _hasMorePages = false;
+        _totalResults = 0;
       });
       return;
     }
@@ -88,6 +90,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _isSearching = true;
         _searchResults = [];
         _currentPage = 1;
+        _totalResults = 0;
       } else {
         _isLoadingMore = true;
       }
@@ -101,6 +104,7 @@ class _SearchScreenState extends State<SearchScreen> {
         setState(() {
           if (page == 1) {
             _searchResults = response.works;
+            _totalResults = response.totalResults;
           } else {
             _searchResults.addAll(response.works);
           }
@@ -169,13 +173,24 @@ class _SearchScreenState extends State<SearchScreen> {
               );
             },
             child: hasSearchQuery
-                ? Padding(
+                ? Column(
                     key: const ValueKey('search-input-top'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: _buildSearchInput(),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        child: _buildSearchInput(),
+                      ),
+                      // Results count
+                      if (_totalResults > 0)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _buildResultsCount(),
+                        ),
+                    ],
                   )
                 : const SizedBox.shrink(key: ValueKey('search-input-hidden')),
           ),
@@ -435,6 +450,60 @@ class _SearchScreenState extends State<SearchScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildResultsCount() {
+    return Center(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, -0.2),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+                  ),
+              child: child,
+            ),
+          );
+        },
+        child: Text(
+          _formatResultsCount(_totalResults),
+          key: ValueKey('results-count-$_totalResults'),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatResultsCount(int count) {
+    if (count == 0) return 'No stories found';
+    if (count == 1) return '1 story';
+
+    // Format large numbers
+    if (count >= 1000000) {
+      final millions = count / 1000000;
+      if (millions % 1 == 0) {
+        return '${millions.toInt()}M stories';
+      }
+      return '${millions.toStringAsFixed(1)}M stories';
+    } else if (count >= 1000) {
+      final thousands = count / 1000;
+      if (thousands % 1 == 0) {
+        return '${thousands.toInt()}K stories';
+      }
+      return '${thousands.toStringAsFixed(1)}K stories';
+    }
+
+    return '$count stories';
   }
 
   Widget _buildCategoryChips() {
