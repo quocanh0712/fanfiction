@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/app_header.dart';
 import '../repositories/category_repository.dart';
 import '../models/category_model.dart';
+import '../models/work_model.dart';
+import '../services/search_service.dart';
+import '../widgets/work_item.dart';
 import '../widgets/loading_indicator.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -15,17 +19,34 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final SearchService _searchService = SearchService();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _debounceTimer;
+
+  List<WorkModel> _searchResults = [];
+  bool _isSearching = false;
+  bool _isLoadingMore = false;
+  int _currentPage = 1;
+  bool _hasMorePages = false;
+  String? _error;
+  final Map<String, bool> _expandedTags = {};
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -36,29 +57,162 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  void _onSearchChanged() {
+    final query = _searchController.text.trim();
+
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+
+    if (query.isEmpty) {
+      // Clear results when query is empty
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+        _currentPage = 1;
+        _hasMorePages = false;
+      });
+      return;
+    }
+
+    // Debounce search API call
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query, page: 1);
+    });
+  }
+
+  Future<void> _performSearch(String query, {int page = 1}) async {
+    if (query.isEmpty) return;
+
+    setState(() {
+      if (page == 1) {
+        _isSearching = true;
+        _searchResults = [];
+        _currentPage = 1;
+      } else {
+        _isLoadingMore = true;
+      }
+      _error = null;
+    });
+
+    try {
+      final response = await _searchService.searchWorks(query, page: page);
+
+      if (mounted) {
+        setState(() {
+          if (page == 1) {
+            _searchResults = response.works;
+          } else {
+            _searchResults.addAll(response.works);
+          }
+          _currentPage = response.page;
+          _hasMorePages = response.hasMorePages;
+          _isSearching = false;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isSearching = false;
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _onScroll() {
+    // Load more when scrolling near bottom
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore &&
+          _hasMorePages &&
+          _searchController.text.trim().isNotEmpty) {
+        _performSearch(_searchController.text.trim(), page: _currentPage + 1);
+      }
+    }
+  }
+
   void _onSearch() {
     final query = _searchController.text.trim();
     if (query.isNotEmpty) {
-      // TODO: Implement search functionality
-      print('Search query: $query');
+      _debounceTimer?.cancel();
+      _performSearch(query, page: 1);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasSearchQuery = _searchController.text.trim().isNotEmpty;
+
     return Material(
       color: const Color(0xFF121212),
       child: Column(
         children: [
           const AppHeader(title: 'Search', isHaveIcon: false),
-          Expanded(child: _buildContent()),
+          // Animated search input - moves to top when has query
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, -0.3),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOut,
+                      ),
+                    ),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: hasSearchQuery
+                ? Padding(
+                    key: const ValueKey('search-input-top'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: _buildSearchInput(),
+                  )
+                : const SizedBox.shrink(key: ValueKey('search-input-hidden')),
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.1),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeInOut,
+                          ),
+                        ),
+                    child: child,
+                  ),
+                );
+              },
+              child: hasSearchQuery
+                  ? _buildSearchResults(key: const ValueKey('search-results'))
+                  : _buildInitialContent(),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildInitialContent() {
     return LayoutBuilder(
+      key: const ValueKey('initial-content'),
       builder: (context, constraints) {
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -71,8 +225,25 @@ class _SearchScreenState extends State<SearchScreen> {
                   // Search Prompt Section
                   _buildSearchPrompt(),
                   const SizedBox(height: 60),
-                  // Search Input Section
-                  _buildSearchInput(),
+                  // Search Input Section - in the middle when no query
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: _buildSearchInput(),
+                  ),
                   const SizedBox(height: 60),
                   // Category Chips Section
                   _buildCategoryChips(),
@@ -83,6 +254,89 @@ class _SearchScreenState extends State<SearchScreen> {
         );
       },
     );
+  }
+
+  Widget _buildSearchResults({Key? key}) {
+    Widget content;
+
+    if (_isSearching && _searchResults.isEmpty) {
+      content = const Center(child: LoadingIndicator(color: Color(0xFF7d26cd)));
+    } else if (_error != null && _searchResults.isEmpty) {
+      content = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Error loading results',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.5),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_searchResults.isEmpty) {
+      content = Center(
+        child: Text(
+          'No results found',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+      );
+    } else {
+      content = ListView.separated(
+        controller: _scrollController,
+        padding: EdgeInsets.zero,
+        itemCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
+        separatorBuilder: (context, index) {
+          if (index >= _searchResults.length) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: const Divider(
+              color: Color(0xFF2A2A2A),
+              thickness: 1,
+              height: 1,
+            ),
+          );
+        },
+        itemBuilder: (context, index) {
+          if (index >= _searchResults.length) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: LoadingIndicator(color: Color(0xFF7d26cd))),
+            );
+          }
+
+          final work = _searchResults[index];
+          return WorkItem(
+            work: work,
+            expandedTags: _expandedTags,
+            onTagExpanded: (workId) {
+              setState(() {
+                _expandedTags[workId] = !(_expandedTags[workId] ?? false);
+              });
+            },
+          );
+        },
+      );
+    }
+
+    return SizedBox(key: key, child: content);
   }
 
   Widget _buildSearchPrompt() {
@@ -113,8 +367,14 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSearchInput() {
+    final hasSearchQuery = _searchController.text.trim().isNotEmpty;
+
     return Container(
-      width: MediaQuery.of(context).size.width * 0.8,
+      key: ValueKey('search-input-${hasSearchQuery ? 'top' : 'center'}'),
+      width: hasSearchQuery
+          ? double.infinity
+          : MediaQuery.of(context).size.width * 0.8,
+      alignment: hasSearchQuery ? Alignment.centerLeft : Alignment.center,
       child: Stack(
         alignment: Alignment.centerRight,
         children: [
