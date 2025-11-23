@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../widgets/app_header.dart';
+import '../services/saved_works_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +17,179 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _textSize = 10;
   String _selectedTheme = 'Default';
   int _ttsSpeechRate = 100;
+  String _appVersion = 'Loading...';
+  String _buildNumber = '';
+  String _databaseSize = '0 B';
+  double _databaseSizeProgress = 0.0;
+  bool _isDeleting = false;
+
+  final SavedWorksService _savedWorksService = SavedWorksService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+    _loadDatabaseSize();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = packageInfo.version;
+          _buildNumber = packageInfo.buildNumber;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _appVersion = 'Unknown';
+          _buildNumber = '';
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDatabaseSize() async {
+    try {
+      final sizeInBytes = await _savedWorksService.getDatabaseSize();
+      if (mounted) {
+        setState(() {
+          _databaseSize = _formatBytes(sizeInBytes);
+          // Calculate progress (assuming max size is 2GB for progress bar)
+          const maxSizeBytes = 2 * 1024 * 1024 * 1024; // 2GB
+          _databaseSizeProgress = (sizeInBytes / maxSizeBytes).clamp(0.0, 1.0);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _databaseSize = '0 B';
+          _databaseSizeProgress = 0.0;
+        });
+      }
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+  }
+
+  Future<void> _deleteAllStories() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: Text(
+          'Delete All Stories',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete all saved stories? This action cannot be undone.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: Colors.white.withOpacity(0.8),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFe7165b),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _isDeleting = true;
+      });
+
+      try {
+        final success = await _savedWorksService.clearAllSavedWorks();
+        if (mounted) {
+          if (success) {
+            // Reload database size
+            await _loadDatabaseSize();
+
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'All stories deleted successfully',
+                  style: GoogleFonts.poppins(),
+                ),
+                backgroundColor: const Color(0xFF20a852),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          } else {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Failed to delete stories',
+                  style: GoogleFonts.poppins(),
+                ),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error: ${e.toString()}',
+                style: GoogleFonts.poppins(),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isDeleting = false;
+          });
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +275,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 3),
             Text(
-              '1.2.1 (undefined)',
+              '$_appVersion ($_buildNumber)',
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
@@ -235,7 +410,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Database Size: 1.3 GB',
+              'Database Size: $_databaseSize',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -251,7 +426,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: 0.15, // 52px / 335px ≈ 0.15
+                widthFactor: _databaseSizeProgress.clamp(0.0, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFF20a852),
@@ -274,17 +449,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {},
+              onTap: _isDeleting ? null : _deleteAllStories,
               borderRadius: BorderRadius.circular(30),
               child: Center(
-                child: Text(
-                  'Delete All Stories',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFe7165b),
-                  ),
-                ),
+                child: _isDeleting
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            const Color(0xFFe7165b),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        'Delete All Stories',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFFe7165b),
+                        ),
+                      ),
               ),
             ),
           ),
@@ -501,7 +687,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: themes.map((theme) {
             final isSelected = _selectedTheme == theme['name'];
-            final isPremium = theme['isPremium'] == true;
             return GestureDetector(
               onTap: () {
                 setState(() {

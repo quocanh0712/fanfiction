@@ -55,6 +55,9 @@ dependencies:
   
   # Beautiful loading indicators
   flutter_spinkit: ^5.2.1
+  
+  # App version info
+  package_info_plus: ^8.1.1
 
 dev_dependencies:
   flutter_test:

@@ -121,4 +121,37 @@ class SavedWorksService {
       return await saveWork(work);
     }
   }
+
+  // Clear all saved works
+  Future<bool> clearAllSavedWorks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.remove(_savedWorksKey);
+    } catch (e) {
+      print('Error clearing all saved works: $e');
+      return false;
+    }
+  }
+
+  // Get database size in bytes
+  Future<int> getDatabaseSize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedWorksJson = prefs.getStringList(_savedWorksKey) ?? [];
+
+      // Calculate size of saved works data
+      int totalSize = 0;
+      for (final jsonString in savedWorksJson) {
+        totalSize +=
+            jsonString.length * 2; // UTF-16 encoding, 2 bytes per character
+      }
+
+      // Also get size of other SharedPreferences keys if needed
+      // For now, we'll just return the saved works size
+      return totalSize;
+    } catch (e) {
+      print('Error calculating database size: $e');
+      return 0;
+    }
+  }
 }
