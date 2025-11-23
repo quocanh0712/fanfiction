@@ -12,7 +12,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _disableWordMasking = false;
-  int _textSize = 14;
+  int _textSize = 10;
   String _selectedTheme = 'Default';
   int _ttsSpeechRate = 100;
 
@@ -370,15 +370,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        Text(
-          'Lorem ipsum dolor sit amet, consectetur',
-          style: GoogleFonts.poppins(
-            fontSize: _textSize.toDouble(),
-            fontWeight: FontWeight.w400,
-            color: Colors.white.withOpacity(0.7),
-            height: 1.4,
+        Center(
+          child: Text(
+            'Lorem ipsum dolor sit amet, consectetur',
+            style: GoogleFonts.poppins(
+              fontSize: _textSize.toDouble(),
+              fontWeight: FontWeight.w400,
+              color: Colors.white.withOpacity(0.7),
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         Row(
@@ -388,7 +390,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: '+A',
                 onTap: () {
                   setState(() {
-                    _textSize = (_textSize + 2).clamp(8, 24);
+                    if (_textSize < 20) {
+                      _textSize = _textSize + 2;
+                    }
                   });
                 },
               ),
@@ -399,7 +403,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 label: '-A',
                 onTap: () {
                   setState(() {
-                    _textSize = (_textSize - 2).clamp(8, 24);
+                    if (_textSize > 10) {
+                      _textSize = _textSize - 2;
+                    }
                   });
                 },
               ),
@@ -531,12 +537,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  if (isPremium)
-                    Positioned(
-                      right: -2,
-                      top: -2,
-                      child: Icon(Icons.star, size: 10, color: Colors.amber),
-                    ),
+                  // if (isPremium)
+                  //   Positioned(
+                  //     right: -2,
+                  //     top: -2,
+                  //     child: Icon(Icons.star, size: 10, color: Colors.amber),
+                  //   ),
                 ],
               ),
             );
@@ -614,14 +620,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 20),
-        Text(
-          '$_ttsSpeechRate',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
+        Center(
+          child: Text(
+            '$_ttsSpeechRate',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Row(
