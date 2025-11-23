@@ -90,6 +90,28 @@ class WorkService {
     }
   }
 
+  /// Get new works
+  ///
+  /// Example: GET https://fandom-gg.onrender.com/new
+  Future<List<WorkModel>> getNewWorks() async {
+    try {
+      final response = await _apiClient.dio.get('/new');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => WorkModel.fromJson(json)).toList();
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// Get work content by work ID
   ///
   /// Parameters:

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
+import '../repositories/new_works_repository.dart';
 import '../services/app_preferences_service.dart';
 import '../widgets/loading_indicator.dart';
 
@@ -19,6 +20,7 @@ class _AppInitializerState extends State<AppInitializer>
   late final Animation<double> _scale;
   late final Animation<double> _offset;
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final NewWorksRepository _newWorksRepository = NewWorksRepository();
   final AppPreferencesService _appPreferencesService = AppPreferencesService();
 
   @override
@@ -49,7 +51,10 @@ class _AppInitializerState extends State<AppInitializer>
     if (mounted) {
       try {
         // Load critical data
-        await _categoryRepository.loadCategories();
+        await Future.wait([
+          _categoryRepository.loadCategories(),
+          _newWorksRepository.loadNewWorks(),
+        ]);
 
         // Check if this is first launch
         final isFirstLaunch = await _appPreferencesService.isFirstLaunch();

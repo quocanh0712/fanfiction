@@ -194,9 +194,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: hasSearchQuery
                 ? Padding(
                     key: const ValueKey('search-input-top'),
-                    padding: const EdgeInsets.fromLTRB(20,16,20,10
-
-                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
                     child: _buildSearchInput(),
                   )
                 : const SizedBox.shrink(key: ValueKey('search-input-hidden')),

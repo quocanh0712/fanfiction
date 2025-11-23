@@ -82,6 +82,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/ic_fanfiction/
   
   # Uncomment below to use custom fonts
   # fonts:
