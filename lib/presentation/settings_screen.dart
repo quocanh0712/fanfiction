@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAppVersion();
     _loadDatabaseSize();
     _loadThemeMode();
+    _loadTextSize();
   }
 
   Future<void> _loadAppVersion() async {
@@ -93,6 +94,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _appPreferencesService.setThemeMode(themeMode);
     } catch (e) {
       print('Error saving theme mode: $e');
+    }
+  }
+
+  Future<void> _loadTextSize() async {
+    try {
+      final textSize = await _appPreferencesService.getTextSize();
+      if (mounted) {
+        setState(() {
+          _textSize = textSize;
+        });
+      }
+    } catch (e) {
+      print('Error loading text size: $e');
+    }
+  }
+
+  Future<void> _saveTextSize(int textSize) async {
+    try {
+      await _appPreferencesService.setTextSize(textSize);
+    } catch (e) {
+      print('Error saving text size: $e');
     }
   }
 
@@ -599,11 +621,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _buildTextSizeButton(
                 label: '+A',
                 onTap: () {
-                  setState(() {
-                    if (_textSize < 20) {
-                      _textSize = _textSize + 2;
-                    }
-                  });
+                  if (_textSize < 20) {
+                    final newSize = _textSize + 2;
+                    setState(() {
+                      _textSize = newSize;
+                    });
+                    // Save text size preference
+                    _saveTextSize(newSize);
+                  }
                 },
               ),
             ),
@@ -612,11 +637,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _buildTextSizeButton(
                 label: '-A',
                 onTap: () {
-                  setState(() {
-                    if (_textSize > 10) {
-                      _textSize = _textSize - 2;
-                    }
-                  });
+                  if (_textSize > 10) {
+                    final newSize = _textSize - 2;
+                    setState(() {
+                      _textSize = newSize;
+                    });
+                    // Save text size preference
+                    _saveTextSize(newSize);
+                  }
                 },
               ),
             ),

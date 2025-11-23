@@ -45,6 +45,8 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
   // Theme settings
   int _fontSizeOffset = 0; // 0 to 10 (default 10, each increment adds 2)
+  int _initialTextSize =
+      10; // Text size from settings (used to calculate max offset)
   String _fontFamily = 'Default'; // Default, Times New Roman, etc.
   String _themeMode = 'Default'; // Default, Light, Paper, Calm, Light blue
 
@@ -82,8 +84,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
-    // Load theme from preferences
+    // Load theme and text size from preferences
     _loadThemeMode();
+    _loadTextSize();
 
     // Initialize TTS
     _initTts();
@@ -109,6 +112,38 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     } catch (e) {
       print('Error loading theme mode: $e');
     }
+  }
+
+  Future<void> _loadTextSize() async {
+    try {
+      final textSize = await _appPreferencesService.getTextSize();
+      if (mounted) {
+        setState(() {
+          // Store initial text size from settings
+          _initialTextSize = textSize;
+          // Convert text size to offset
+          // actualFontSize = baseFontSize (10) + offset
+          // So: offset = textSize - 10
+          // Text size 10 = offset 0, 12 = 2, 14 = 4, 16 = 6, 18 = 8, 20 = 10
+          _fontSizeOffset = textSize - 10;
+        });
+      }
+    } catch (e) {
+      print('Error loading text size: $e');
+    }
+  }
+
+  // Calculate max offset based on initial text size from settings
+  // Max offset allows only 1 more increment from initial text size
+  int _getMaxOffset() {
+    // Convert initial text size to offset
+    // Text size 10 = offset 0, 12 = 2, 14 = 4, 16 = 6, 18 = 8, 20 = 10
+    final initialOffset = _initialTextSize - 10;
+    // Max offset allows only 1 more increment (add 2 to offset)
+    // This ensures user can only increase by 1 step from their settings
+    final maxOffset = initialOffset + 2;
+    // But don't exceed the absolute max of 10 (text size 20)
+    return maxOffset.clamp(0, 10);
   }
 
   void _updateChapter(int chapterIndex) {
@@ -917,6 +952,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
             isPlaying: _isPlaying,
             workTitle: widget.workTitle,
             fontSizeMultiplier: _fontSizeOffset,
+            maxFontSizeMultiplier: _getMaxOffset(),
             fontFamily: _fontFamily,
             themeMode: _themeMode,
             onFontSizeChanged: (offset) {
@@ -1515,6 +1551,7 @@ class _StoryMenuBottomSheet extends StatefulWidget {
   final VoidCallback? onPlayPauseTap;
   final String workTitle;
   final int fontSizeMultiplier;
+  final int maxFontSizeMultiplier;
   final String fontFamily;
   final String themeMode;
   final Function(int)? onFontSizeChanged;
@@ -1530,6 +1567,7 @@ class _StoryMenuBottomSheet extends StatefulWidget {
     required this.isPlaying,
     required this.workTitle,
     required this.fontSizeMultiplier,
+    required this.maxFontSizeMultiplier,
     required this.fontFamily,
     required this.themeMode,
     this.onChapterTap,
@@ -1880,7 +1918,8 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                           // Increase button
                           GestureDetector(
                             onTap:
-                                widget.fontSizeMultiplier < 10 &&
+                                widget.fontSizeMultiplier <
+                                        widget.maxFontSizeMultiplier &&
                                     widget.onFontSizeChanged != null
                                 ? () {
                                     widget.onFontSizeChanged!(
@@ -1892,11 +1931,15 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                               width: 150,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: widget.fontSizeMultiplier < 10
+                                color:
+                                    widget.fontSizeMultiplier <
+                                        widget.maxFontSizeMultiplier
                                     ? Colors.white.withValues(alpha: 0.1)
                                     : Colors.transparent,
                                 border: Border.all(
-                                  color: widget.fontSizeMultiplier < 10
+                                  color:
+                                      widget.fontSizeMultiplier <
+                                          widget.maxFontSizeMultiplier
                                       ? Colors.white.withValues(alpha: 0.3)
                                       : Colors.white.withValues(alpha: 0.1),
                                   width: 1,
@@ -1909,7 +1952,9 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: widget.fontSizeMultiplier < 10
+                                    color:
+                                        widget.fontSizeMultiplier <
+                                            widget.maxFontSizeMultiplier
                                         ? Colors.white
                                         : Colors.white.withValues(alpha: 0.3),
                                   ),

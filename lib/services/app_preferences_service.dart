@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppPreferencesService {
   static const String _isFirstLaunchKey = 'is_first_launch';
   static const String _themeModeKey = 'theme_mode';
+  static const String _textSizeKey = 'text_size';
 
   // Check if this is the first launch
   Future<bool> isFirstLaunch() async {
@@ -45,6 +46,28 @@ class AppPreferencesService {
       return await prefs.setString(_themeModeKey, themeMode);
     } catch (e) {
       print('Error setting theme mode: $e');
+      return false;
+    }
+  }
+
+  // Get text size preference (returns actual font size: 10, 12, 14, 16, 18, 20)
+  Future<int> getTextSize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_textSizeKey) ?? 10; // Default to 10
+    } catch (e) {
+      print('Error getting text size: $e');
+      return 10;
+    }
+  }
+
+  // Set text size preference (accepts actual font size: 10, 12, 14, 16, 18, 20)
+  Future<bool> setTextSize(int textSize) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setInt(_textSizeKey, textSize);
+    } catch (e) {
+      print('Error setting text size: $e');
       return false;
     }
   }
