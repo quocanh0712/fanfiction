@@ -29,10 +29,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
                   // App Info Section
                   _buildAppInfo(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   // Menu Items
                   _buildMenuItems(),
                   const SizedBox(height: 24),
@@ -40,8 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildClearCachesSection(),
                   const SizedBox(height: 24),
                   // Disable Word Masking
-                  _buildDisableWordMasking(),
-                  const SizedBox(height: 24),
+                  // _buildDisableWordMasking(),
+                  // const SizedBox(height: 24),
                   // Text Size Section
                   _buildTextSizeSection(),
                   const SizedBox(height: 24),
@@ -78,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: SvgPicture.asset(
               'assets/images/img_book.svg',
               width: 40,
-              height: 40,
+              height: 32,
               colorFilter: const ColorFilter.mode(
                 Colors.white,
                 BlendMode.srcIn,
@@ -98,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 3),
             Text(
               '1.2.1 (undefined)',
               style: GoogleFonts.poppins(
@@ -116,12 +116,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildMenuItems() {
     return Column(
       children: [
-        _buildMenuItem(
-          iconPath: 'assets/ic_fanfiction/ic_subscription.svg',
-          title: 'Subscribe',
-          onTap: () {},
-        ),
-        _buildDivider(),
+        // _buildMenuItem(
+        //   iconPath: 'assets/ic_fanfiction/ic_subscription.svg',
+        //   title: 'Subscribe',
+        //   onTap: () {},
+        // ),
+        // _buildDivider(),
         _buildMenuItem(
           iconPath: 'assets/ic_fanfiction/ic_policy.svg',
           title: 'Privacy Policy',
@@ -146,17 +146,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () {},
         ),
         _buildDivider(),
-        _buildMenuItem(
-          iconPath: 'assets/ic_fanfiction/ic_restore_purchase.svg',
-          title: 'Restore Purchases',
-          onTap: () {},
-        ),
-        _buildDivider(),
-        _buildMenuItem(
-          iconPath: 'assets/ic_fanfiction/ic_manage_subscription.svg',
-          title: 'Manage Subscription',
-          onTap: () {},
-        ),
+        // _buildMenuItem(
+        //   iconPath: 'assets/ic_fanfiction/ic_restore_purchase.svg',
+        //   title: 'Restore Purchases',
+        //   onTap: () {},
+        // ),
+        // _buildDivider(),
+        // _buildMenuItem(
+        //   iconPath: 'assets/ic_fanfiction/ic_manage_subscription.svg',
+        //   title: 'Manage Subscription',
+        //   onTap: () {},
+        // ),
       ],
     );
   }
