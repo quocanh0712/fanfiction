@@ -56,13 +56,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final voice = await _appPreferencesService.getTTSVoice();
       final language = await _appPreferencesService.getTTSLanguage();
+
+      // Load voices first to ensure we have the list
+      await _loadAvailableVoices();
+
       if (mounted) {
         setState(() {
           _selectedVoice = voice;
           _selectedLanguage = language;
         });
       }
-      await _loadAvailableVoices();
+
+      // Debug: Print loaded voice info
+      print('Loaded voice from preferences: $voice');
+      print('Loaded language from preferences: $language');
+      if (voice != null) {
+        final voiceExists = _availableVoices.any((v) => v['name'] == voice);
+        print('Voice exists in available voices: $voiceExists');
+        if (!voiceExists) {
+          print(
+            'Available voices: ${_availableVoices.map((v) => v['name']).take(10).toList()}',
+          );
+        }
+      }
     } catch (e) {
       print('Error loading TTS voice: $e');
     }
@@ -961,10 +977,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 // Default option
                 _buildVoiceItem(
-                  displayName:
-                      'Default - ${_getLanguageDisplayName(_selectedLanguage)}',
+                  displayName: 'Default - English',
                   isSelected: _selectedVoice == null,
-                  onTap: () => _saveTTSVoice(null),
+                  onTap: () {
+                    // When selecting Default, also reset language to en-US
+                    _saveTTSVoice(null);
+                    _saveTTSLanguage('en-US');
+                  },
                 ),
                 const SizedBox(height: 8),
                 // Voice options

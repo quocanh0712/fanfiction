@@ -92,6 +92,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     // Initialize TTS
     _initTts();
 
+    // Load available voices after TTS is initialized (async, no await needed)
+    _loadAvailableVoices();
+
     // Parse content into sentences
     _parseContent();
 
@@ -136,6 +139,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
   String? _ttsVoice;
   String _ttsLanguage = 'en-US';
+  List<Map<String, String>> _availableVoices = [];
 
   Future<void> _loadTTSVoice() async {
     try {
@@ -147,8 +151,43 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           _ttsLanguage = language;
         });
       }
+      // Load available voices to find the correct locale for the selected voice
+      await _loadAvailableVoices();
     } catch (e) {
       print('Error loading TTS voice: $e');
+    }
+  }
+
+  Future<void> _loadAvailableVoices() async {
+    try {
+      final voices = await flutterTts.getVoices;
+      if (mounted) {
+        setState(() {
+          _availableVoices = List<Map<String, String>>.from(
+            voices.map(
+              (voice) => {
+                'name': voice['name']?.toString() ?? '',
+                'locale': voice['locale']?.toString() ?? '',
+              },
+            ),
+          );
+        });
+      }
+    } catch (e) {
+      print('Error loading available voices: $e');
+    }
+  }
+
+  String? _getVoiceLocale(String voiceName) {
+    // Find the locale for the given voice name
+    try {
+      final voice = _availableVoices.firstWhere(
+        (v) => v['name'] == voiceName,
+        orElse: () => {},
+      );
+      return voice['locale'];
+    } catch (e) {
+      return null;
     }
   }
 
@@ -377,13 +416,22 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           return;
         }
 
+        // Reload voice and language from preferences before using TTS
+        // This ensures we use the latest settings even if changed in settings screen
+        await _loadTTSVoice();
+
+        // If voice is default (null), reset language to en-US
+        final languageToUse = (_ttsVoice == null || _ttsVoice!.isEmpty)
+            ? 'en-US'
+            : _ttsLanguage;
+
         // Set language and voice from preferences
         try {
-          await flutterTts.setLanguage(_ttsLanguage);
+          await flutterTts.setLanguage(languageToUse);
         } catch (e) {
           try {
             // Fallback to language code without region
-            final langCode = _ttsLanguage.split('-')[0];
+            final langCode = languageToUse.split('-')[0];
             await flutterTts.setLanguage(langCode);
           } catch (e2) {
             try {
@@ -395,16 +443,34 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           }
         }
 
-        // Set voice if available
+        // Set voice if available, otherwise use default voice
         if (_ttsVoice != null && _ttsVoice!.isNotEmpty) {
           try {
+            // Find the correct locale for this voice
+            final voiceLocale = _getVoiceLocale(_ttsVoice!);
+            final localeToUse = voiceLocale ?? _ttsLanguage;
+
             await flutterTts.setVoice({
               'name': _ttsVoice!,
-              'locale': _ttsLanguage,
+              'locale': localeToUse,
             });
+            print('Voice set to: $_ttsVoice with locale: $localeToUse');
           } catch (e) {
             print('Failed to set voice: $e');
             // Continue without voice setting
+          }
+        } else {
+          // When voice is null (default), use system default voice for English
+          // Language is already set to en-US above when voice is default
+          try {
+            // Stop TTS first to ensure voice change takes effect
+            await flutterTts.stop();
+            // Small delay to ensure TTS is ready
+            await Future.delayed(const Duration(milliseconds: 100));
+            print('Voice reset to system default for language: $languageToUse');
+          } catch (e) {
+            print('Error resetting to default voice: $e');
+            // Continue without voice setting, let system use default
           }
         }
 
