@@ -6,6 +6,7 @@ class AppPreferencesService {
   static const String _textSizeKey = 'text_size';
   static const String _ttsVoiceKey = 'tts_voice';
   static const String _ttsLanguageKey = 'tts_language';
+  static const String _ttsSpeechRateKey = 'tts_speech_rate';
 
   // Check if this is the first launch
   Future<bool> isFirstLaunch() async {
@@ -117,6 +118,28 @@ class AppPreferencesService {
       return await prefs.setString(_ttsLanguageKey, language);
     } catch (e) {
       print('Error setting TTS language: $e');
+      return false;
+    }
+  }
+
+  // Get TTS speech rate preference (returns value from 50-200, default: 100)
+  Future<int> getTTSSpeechRate() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_ttsSpeechRateKey) ?? 100; // Default to 100
+    } catch (e) {
+      print('Error getting TTS speech rate: $e');
+      return 100;
+    }
+  }
+
+  // Set TTS speech rate preference (accepts value from 50-200)
+  Future<bool> setTTSSpeechRate(int speechRate) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setInt(_ttsSpeechRateKey, speechRate);
+    } catch (e) {
+      print('Error setting TTS speech rate: $e');
       return false;
     }
   }

@@ -44,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadTextSize();
     _initTTS();
     _loadTTSVoice();
+    _loadTTSSpeechRate();
     // Load voices when screen initializes
     _loadAvailableVoices();
   }
@@ -155,6 +156,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _loadAvailableVoices();
     } catch (e) {
       print('Error saving TTS language: $e');
+    }
+  }
+
+  Future<void> _loadTTSSpeechRate() async {
+    try {
+      final speechRate = await _appPreferencesService.getTTSSpeechRate();
+      if (mounted) {
+        setState(() {
+          _ttsSpeechRate = speechRate;
+        });
+      }
+    } catch (e) {
+      print('Error loading TTS speech rate: $e');
+    }
+  }
+
+  Future<void> _saveTTSSpeechRate(int speechRate) async {
+    try {
+      await _appPreferencesService.setTTSSpeechRate(speechRate);
+    } catch (e) {
+      print('Error saving TTS speech rate: $e');
     }
   }
 
@@ -1400,9 +1422,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _buildSpeechRateButton(
                 label: '+',
                 onTap: () {
+                  final newRate = (_ttsSpeechRate + 10).clamp(50, 200);
                   setState(() {
-                    _ttsSpeechRate = (_ttsSpeechRate + 10).clamp(50, 200);
+                    _ttsSpeechRate = newRate;
                   });
+                  // Save speech rate preference
+                  _saveTTSSpeechRate(newRate);
                 },
               ),
             ),
@@ -1411,9 +1436,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _buildSpeechRateButton(
                 label: '-',
                 onTap: () {
+                  final newRate = (_ttsSpeechRate - 10).clamp(50, 200);
                   setState(() {
-                    _ttsSpeechRate = (_ttsSpeechRate - 10).clamp(50, 200);
+                    _ttsSpeechRate = newRate;
                   });
+                  // Save speech rate preference
+                  _saveTTSSpeechRate(newRate);
                 },
               ),
             ),

@@ -139,6 +139,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
   String? _ttsVoice;
   String _ttsLanguage = 'en-US';
+  double _ttsSpeechRate = 0.5; // Default speech rate (0.0 to 1.0)
   List<Map<String, String>> _availableVoices = [];
 
   Future<void> _loadTTSVoice() async {
@@ -155,6 +156,25 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       await _loadAvailableVoices();
     } catch (e) {
       print('Error loading TTS voice: $e');
+    }
+  }
+
+  Future<void> _loadTTSSpeechRate() async {
+    try {
+      // Get speech rate from preferences (50-200)
+      final speechRateInt = await _appPreferencesService.getTTSSpeechRate();
+      // Convert to FlutterTts format (0.0-1.0)
+      // 100 in preferences = 0.5 in FlutterTts (normal speed)
+      // Formula: flutterTtsRate = (preferencesRate / 100.0) * 0.5
+      // Or: flutterTtsRate = preferencesRate / 200.0
+      final speechRate = (speechRateInt / 200.0).clamp(0.0, 1.0);
+      if (mounted) {
+        setState(() {
+          _ttsSpeechRate = speechRate;
+        });
+      }
+    } catch (e) {
+      print('Error loading TTS speech rate: $e');
     }
   }
 
@@ -416,9 +436,10 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           return;
         }
 
-        // Reload voice and language from preferences before using TTS
+        // Reload voice, language, and speech rate from preferences before using TTS
         // This ensures we use the latest settings even if changed in settings screen
         await _loadTTSVoice();
+        await _loadTTSSpeechRate();
 
         // If voice is default (null), reset language to en-US
         final languageToUse = (_ttsVoice == null || _ttsVoice!.isEmpty)
@@ -474,7 +495,13 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           }
         }
 
-        await flutterTts.setSpeechRate(0.5);
+        // Set speech rate from preferences (convert from 50-200 to 0.0-1.0)
+        // Speech rate in preferences: 50-200 (100 = normal speed)
+        // FlutterTts speech rate: 0.0-1.0 (0.5 = normal speed)
+        // Conversion: flutterTtsRate = (preferencesRate / 100.0) * 0.5
+        // Or simpler: flutterTtsRate = preferencesRate / 200.0
+        final speechRate = _ttsSpeechRate.clamp(0.0, 1.0);
+        await flutterTts.setSpeechRate(speechRate);
         await flutterTts.setVolume(1.0);
         await flutterTts.setPitch(1.0);
 
