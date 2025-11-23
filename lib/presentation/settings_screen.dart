@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../widgets/app_header.dart';
 import '../services/saved_works_service.dart';
 import '../services/app_preferences_service.dart';
@@ -24,6 +25,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _databaseSizeProgress = 0.0;
   bool _isDeleting = false;
 
+  // TTS Voice state
+  FlutterTts? _flutterTts;
+  List<Map<String, String>> _availableVoices = [];
+  String? _selectedVoice;
+  String _selectedLanguage = 'en-US';
+  bool _isLoadingVoices = false;
+
   final SavedWorksService _savedWorksService = SavedWorksService();
   final AppPreferencesService _appPreferencesService = AppPreferencesService();
 
@@ -34,6 +42,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadDatabaseSize();
     _loadThemeMode();
     _loadTextSize();
+    _initTTS();
+    _loadTTSVoice();
+    // Load voices when screen initializes
+    _loadAvailableVoices();
+  }
+
+  void _initTTS() {
+    _flutterTts = FlutterTts();
+  }
+
+  Future<void> _loadTTSVoice() async {
+    try {
+      final voice = await _appPreferencesService.getTTSVoice();
+      final language = await _appPreferencesService.getTTSLanguage();
+      if (mounted) {
+        setState(() {
+          _selectedVoice = voice;
+          _selectedLanguage = language;
+        });
+      }
+      await _loadAvailableVoices();
+    } catch (e) {
+      print('Error loading TTS voice: $e');
+    }
+  }
+
+  Future<void> _loadAvailableVoices() async {
+    if (_flutterTts == null) return;
+
+    setState(() {
+      _isLoadingVoices = true;
+    });
+
+    try {
+      // Get available voices
+      final voices = await _flutterTts!.getVoices;
+      if (mounted) {
+        setState(() {
+          _availableVoices = List<Map<String, String>>.from(
+            voices.map(
+              (voice) => {
+                'name': voice['name']?.toString() ?? '',
+                'locale': voice['locale']?.toString() ?? '',
+              },
+            ),
+          );
+          _isLoadingVoices = false;
+        });
+        // Debug: Print total voices loaded
+        print('Total voices loaded: ${_availableVoices.length}');
+        print('Selected language: $_selectedLanguage');
+        final filteredCount = _availableVoices
+            .where(
+              (voice) =>
+                  voice['locale']?.startsWith(
+                    _selectedLanguage.split('-')[0],
+                  ) ??
+                  false,
+            )
+            .length;
+        print('Filtered voices count: $filteredCount');
+      }
+    } catch (e) {
+      print('Error loading available voices: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingVoices = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveTTSVoice(String? voice) async {
+    try {
+      await _appPreferencesService.setTTSVoice(voice);
+      if (mounted) {
+        setState(() {
+          _selectedVoice = voice;
+        });
+      }
+    } catch (e) {
+      print('Error saving TTS voice: $e');
+    }
+  }
+
+  Future<void> _saveTTSLanguage(String language) async {
+    try {
+      await _appPreferencesService.setTTSLanguage(language);
+      if (mounted) {
+        setState(() {
+          _selectedLanguage = language;
+        });
+      }
+      // Reload voices when language changes
+      await _loadAvailableVoices();
+    } catch (e) {
+      print('Error saving TTS language: $e');
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -793,6 +899,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildTTSVoiceSection() {
+    // Show all voices instead of filtering by language
+    // If you want to filter by language, uncomment the code below
+    // final filteredVoices = _availableVoices
+    //     .where(
+    //       (voice) =>
+    //           voice['locale']?.startsWith(_selectedLanguage.split('-')[0]) ??
+    //           false,
+    //     )
+    //     .toList();
+
+    // Show all available voices
+    final filteredVoices = _availableVoices;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -819,15 +938,399 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        Text(
-          'Default - English (United States)',
+        if (_isLoadingVoices)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: Text(
+                'Loading voices...',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                // Default option
+                _buildVoiceItem(
+                  displayName:
+                      'Default - ${_getLanguageDisplayName(_selectedLanguage)}',
+                  isSelected: _selectedVoice == null,
+                  onTap: () => _saveTTSVoice(null),
+                ),
+                const SizedBox(height: 8),
+                // Voice options
+                ...filteredVoices.map((voice) {
+                  final voiceName = voice['name'] ?? '';
+                  final locale = voice['locale'] ?? '';
+                  final isSelected = _selectedVoice == voiceName;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _buildVoiceItem(
+                      displayName: _formatVoiceName(voiceName, locale),
+                      isSelected: isSelected,
+                      onTap: () => _saveTTSVoice(voiceName),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildVoiceItem({
+    required String displayName,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withOpacity(0.1)
+              : Colors.transparent,
+          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          displayName,
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: Colors.white.withOpacity(0.7),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  String _formatVoiceName(String voiceName, String locale) {
+    // Extract language name from locale (e.g., "da-DK" -> "Danish")
+    final languageName = _getLanguageNameFromLocale(locale);
+
+    // Extract voice name (remove locale prefix if exists)
+    String cleanVoiceName = voiceName;
+    if (voiceName.contains('-')) {
+      final parts = voiceName.split('-');
+      // Try to get a readable name (usually the first part or a meaningful part)
+      if (parts.length > 2) {
+        // Format like "en-us-x-xxx-local" -> take meaningful parts
+        final meaningfulParts = parts
+            .where((part) => part.length > 2 && !part.contains('x'))
+            .toList();
+        cleanVoiceName = meaningfulParts.isNotEmpty
+            ? meaningfulParts.first
+            : parts.first;
+      } else {
+        cleanVoiceName = parts.first;
+      }
+    }
+
+    // Capitalize first letter
+    if (cleanVoiceName.isNotEmpty) {
+      cleanVoiceName =
+          cleanVoiceName[0].toUpperCase() + cleanVoiceName.substring(1);
+    }
+
+    return '$cleanVoiceName - $languageName';
+  }
+
+  String _getLanguageNameFromLocale(String locale) {
+    // Extract language code (e.g., "da-DK" -> "da")
+    final langCode = locale.split('-').first.toLowerCase();
+
+    // Map language codes to display names
+    final languageMap = {
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'zh': 'Chinese',
+      'da': 'Danish',
+      'nl': 'Dutch',
+      'pl': 'Polish',
+      'ru': 'Russian',
+      'sv': 'Swedish',
+      'tr': 'Turkish',
+      'ar': 'Arabic',
+      'hi': 'Hindi',
+      'th': 'Thai',
+      'vi': 'Vietnamese',
+    };
+
+    return languageMap[langCode] ?? langCode.toUpperCase();
+  }
+
+  String _getVoiceDisplayName(String voiceName) {
+    // Extract a readable name from voice name
+    // Voice names are usually in format like "en-us-x-xxx-local" or "Samantha"
+    if (voiceName.contains('-')) {
+      final parts = voiceName.split('-');
+      if (parts.length >= 2) {
+        // Try to get a readable name
+        return voiceName;
+      }
+    }
+    return voiceName;
+  }
+
+  String _getLanguageDisplayName(String languageCode) {
+    // Map language codes to display names
+    final languageMap = {
+      'en-US': 'English (United States)',
+      'en-GB': 'English (United Kingdom)',
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'zh': 'Chinese',
+    };
+    return languageMap[languageCode] ?? languageCode;
+  }
+
+  Future<void> _showVoiceSelectionDialog() async {
+    if (_isLoadingVoices) {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Loading voices...',
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+      await _loadAvailableVoices();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+
+    // Filter voices by selected language
+    final filteredVoices = _availableVoices
+        .where(
+          (voice) =>
+              voice['locale']?.startsWith(_selectedLanguage.split('-')[0]) ??
+              false,
+        )
+        .toList();
+
+    // Show voice selection dialog
+    if (mounted) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Select Voice',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              // Language selector
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildLanguageSelector(),
+              ),
+              const SizedBox(height: 16),
+              // Voice list
+              Flexible(
+                child: filteredVoices.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          'No voices available for selected language',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount:
+                            filteredVoices.length +
+                            1, // +1 for "Default" option
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            // Default option
+                            final isSelected = _selectedVoice == null;
+                            return ListTile(
+                              title: Text(
+                                'Default - ${_getLanguageDisplayName(_selectedLanguage)}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.white.withOpacity(0.7),
+                                ),
+                              ),
+                              trailing: isSelected
+                                  ? const Icon(Icons.check, color: Colors.white)
+                                  : null,
+                              onTap: () {
+                                _saveTTSVoice(null);
+                                Navigator.of(context).pop();
+                              },
+                            );
+                          }
+
+                          final voice = filteredVoices[index - 1];
+                          final voiceName = voice['name'] ?? '';
+                          final isSelected = _selectedVoice == voiceName;
+
+                          return ListTile(
+                            title: Text(
+                              _getVoiceDisplayName(voiceName),
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            subtitle: Text(
+                              voice['locale'] ?? '',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check, color: Colors.white)
+                                : null,
+                            onTap: () {
+                              _saveTTSVoice(voiceName);
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildLanguageSelector() {
+    // Get unique languages from available voices
+    final languages =
+        _availableVoices
+            .map((voice) => voice['locale']?.split('-')[0] ?? 'en')
+            .toSet()
+            .toList()
+          ..sort();
+
+    // Add common languages if not in list
+    final commonLanguages = [
+      'en',
+      'es',
+      'fr',
+      'de',
+      'it',
+      'pt',
+      'ja',
+      'ko',
+      'zh',
+    ];
+    for (final lang in commonLanguages) {
+      if (!languages.contains(lang)) {
+        languages.add(lang);
+      }
+    }
+    languages.sort();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+      ),
+      child: DropdownButton<String>(
+        value: _selectedLanguage.split('-')[0],
+        isExpanded: true,
+        dropdownColor: const Color(0xFF2E2E2E),
+        style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
+        underline: const SizedBox(),
+        items: languages.map((lang) {
+          return DropdownMenuItem<String>(
+            value: lang,
+            child: Text(_getLanguageDisplayName(lang)),
+          );
+        }).toList(),
+        onChanged: (String? newLang) {
+          if (newLang != null) {
+            // Try to find a full locale (e.g., en-US) or use the language code
+            final fullLocale = _availableVoices
+                .map((v) => v['locale'])
+                .firstWhere(
+                  (locale) => locale?.startsWith(newLang) ?? false,
+                  orElse: () => newLang == 'en' ? 'en-US' : newLang,
+                );
+            _saveTTSLanguage(fullLocale ?? newLang);
+          }
+        },
+      ),
     );
   }
 

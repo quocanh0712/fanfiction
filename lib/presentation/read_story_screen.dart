@@ -87,6 +87,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
     // Load theme and text size from preferences
     _loadThemeMode();
     _loadTextSize();
+    _loadTTSVoice();
 
     // Initialize TTS
     _initTts();
@@ -130,6 +131,24 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       }
     } catch (e) {
       print('Error loading text size: $e');
+    }
+  }
+
+  String? _ttsVoice;
+  String _ttsLanguage = 'en-US';
+
+  Future<void> _loadTTSVoice() async {
+    try {
+      final voice = await _appPreferencesService.getTTSVoice();
+      final language = await _appPreferencesService.getTTSLanguage();
+      if (mounted) {
+        setState(() {
+          _ttsVoice = voice;
+          _ttsLanguage = language;
+        });
+      }
+    } catch (e) {
+      print('Error loading TTS voice: $e');
     }
   }
 
@@ -358,14 +377,34 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
           return;
         }
 
-        // Set language
+        // Set language and voice from preferences
         try {
-          await flutterTts.setLanguage('en-US');
+          await flutterTts.setLanguage(_ttsLanguage);
         } catch (e) {
           try {
-            await flutterTts.setLanguage('en');
+            // Fallback to language code without region
+            final langCode = _ttsLanguage.split('-')[0];
+            await flutterTts.setLanguage(langCode);
           } catch (e2) {
-            print('Failed to set language: $e2');
+            try {
+              // Final fallback to en-US
+              await flutterTts.setLanguage('en-US');
+            } catch (e3) {
+              print('Failed to set language: $e3');
+            }
+          }
+        }
+
+        // Set voice if available
+        if (_ttsVoice != null && _ttsVoice!.isNotEmpty) {
+          try {
+            await flutterTts.setVoice({
+              'name': _ttsVoice!,
+              'locale': _ttsLanguage,
+            });
+          } catch (e) {
+            print('Failed to set voice: $e');
+            // Continue without voice setting
           }
         }
 

@@ -4,6 +4,8 @@ class AppPreferencesService {
   static const String _isFirstLaunchKey = 'is_first_launch';
   static const String _themeModeKey = 'theme_mode';
   static const String _textSizeKey = 'text_size';
+  static const String _ttsVoiceKey = 'tts_voice';
+  static const String _ttsLanguageKey = 'tts_language';
 
   // Check if this is the first launch
   Future<bool> isFirstLaunch() async {
@@ -68,6 +70,53 @@ class AppPreferencesService {
       return await prefs.setInt(_textSizeKey, textSize);
     } catch (e) {
       print('Error setting text size: $e');
+      return false;
+    }
+  }
+
+  // Get TTS voice preference (returns voice name or null for default)
+  Future<String?> getTTSVoice() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_ttsVoiceKey);
+    } catch (e) {
+      print('Error getting TTS voice: $e');
+      return null;
+    }
+  }
+
+  // Set TTS voice preference
+  Future<bool> setTTSVoice(String? voice) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (voice == null) {
+        return await prefs.remove(_ttsVoiceKey);
+      }
+      return await prefs.setString(_ttsVoiceKey, voice);
+    } catch (e) {
+      print('Error setting TTS voice: $e');
+      return false;
+    }
+  }
+
+  // Get TTS language preference (default: 'en-US')
+  Future<String> getTTSLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_ttsLanguageKey) ?? 'en-US';
+    } catch (e) {
+      print('Error getting TTS language: $e');
+      return 'en-US';
+    }
+  }
+
+  // Set TTS language preference
+  Future<bool> setTTSLanguage(String language) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.setString(_ttsLanguageKey, language);
+    } catch (e) {
+      print('Error setting TTS language: $e');
       return false;
     }
   }
