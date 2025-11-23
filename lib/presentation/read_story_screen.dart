@@ -1980,57 +1980,68 @@ class _StoryMenuBottomSheetState extends State<_StoryMenuBottomSheet> {
                       const SizedBox(height: 24),
                       // Theme Mode Selection
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children:
                             [
-                              'Default',
-                              'Light',
-                              'Paper',
-                              'Calm',
-                              'Light blue',
+                              {'name': 'Default', 'color': Colors.black},
+                              {
+                                'name': 'Light',
+                                'color': const Color(0xFFfefefe),
+                              },
+                              {
+                                'name': 'Paper',
+                                'color': const Color(0xFF1d1d1d),
+                              },
+                              {
+                                'name': 'Calm',
+                                'color': const Color(0xFF3b392c),
+                              },
+                              {
+                                'name': 'Blue',
+                                'color': const Color(0xFF3f4b71),
+                              },
                             ].map((theme) {
-                              final isSelected = widget.themeMode == theme;
-                              final themeColor = _getThemeColor(theme);
+                              final themeName = theme['name'] as String;
+                              final isSelected =
+                                  widget.themeMode == themeName ||
+                                  (themeName == 'Blue' &&
+                                      widget.themeMode == 'Light blue');
+                              final themeColor = theme['color'] as Color;
                               return GestureDetector(
                                 onTap: widget.onThemeModeChanged != null
                                     ? () {
-                                        widget.onThemeModeChanged!(theme);
+                                        // Map 'Blue' to 'Light blue' for compatibility
+                                        final themeToSet = themeName == 'Blue'
+                                            ? 'Light blue'
+                                            : themeName;
+                                        widget.onThemeModeChanged!(themeToSet);
                                       }
                                     : null,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 50,
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? Colors.white
-                                              : Colors.white.withValues(
-                                                  alpha: 0.3,
-                                                ),
-                                          width: isSelected ? 2 : 1,
-                                        ),
-                                        color: themeColor,
-                                      ),
+                                child: Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: themeColor,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF7d26cd)
+                                          : Colors.white.withOpacity(0.1),
+                                      width: 3,
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      theme,
+                                    borderRadius: BorderRadius.circular(360),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      themeName,
                                       style: GoogleFonts.poppins(
                                         fontSize: 10,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : Colors.white.withValues(
-                                                alpha: 0.7,
-                                              ),
+                                        fontWeight: FontWeight.w500,
+                                        color: themeName == 'Light'
+                                            ? const Color(0xFF121212)
+                                            : Colors.white,
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               );
                             }).toList(),
