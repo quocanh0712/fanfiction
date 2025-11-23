@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../widgets/app_header.dart';
 import '../services/saved_works_service.dart';
+import '../services/app_preferences_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,12 +25,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDeleting = false;
 
   final SavedWorksService _savedWorksService = SavedWorksService();
+  final AppPreferencesService _appPreferencesService = AppPreferencesService();
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
     _loadDatabaseSize();
+    _loadThemeMode();
   }
 
   Future<void> _loadAppVersion() async {
@@ -69,6 +72,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _databaseSizeProgress = 0.0;
         });
       }
+    }
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      final themeMode = await _appPreferencesService.getThemeMode();
+      if (mounted) {
+        setState(() {
+          _selectedTheme = themeMode;
+        });
+      }
+    } catch (e) {
+      print('Error loading theme mode: $e');
+    }
+  }
+
+  Future<void> _saveThemeMode(String themeMode) async {
+    try {
+      await _appPreferencesService.setThemeMode(themeMode);
+    } catch (e) {
+      print('Error saving theme mode: $e');
     }
   }
 
@@ -689,9 +713,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             final isSelected = _selectedTheme == theme['name'];
             return GestureDetector(
               onTap: () {
+                final themeName = theme['name'] as String;
                 setState(() {
-                  _selectedTheme = theme['name'] as String;
+                  _selectedTheme = themeName;
                 });
+                // Save theme preference
+                _saveThemeMode(themeName);
               },
               child: Stack(
                 clipBehavior: Clip.none,

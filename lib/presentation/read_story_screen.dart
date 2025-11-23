@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../models/work_content_model.dart';
+import '../services/app_preferences_service.dart';
 
 class ReadStoryScreen extends StatefulWidget {
   final ChapterModel chapter;
@@ -55,6 +56,7 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
   List<String> _cleanSentences = []; // Clean sentences for TTS
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _sentenceKeys = {};
+  final AppPreferencesService _appPreferencesService = AppPreferencesService();
 
   @override
   void initState() {
@@ -80,6 +82,9 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
+    // Load theme from preferences
+    _loadThemeMode();
+
     // Initialize TTS
     _initTts();
 
@@ -91,6 +96,19 @@ class _ReadStoryScreenState extends State<ReadStoryScreen>
 
     // Auto-hide after 3 seconds only on first time
     _startHideTimer();
+  }
+
+  Future<void> _loadThemeMode() async {
+    try {
+      final themeMode = await _appPreferencesService.getThemeMode();
+      if (mounted) {
+        setState(() {
+          _themeMode = themeMode;
+        });
+      }
+    } catch (e) {
+      print('Error loading theme mode: $e');
+    }
   }
 
   void _updateChapter(int chapterIndex) {
