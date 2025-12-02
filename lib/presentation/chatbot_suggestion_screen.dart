@@ -4,8 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
 import '../services/fandom_service.dart';
+import '../services/search_service.dart';
 import '../models/fandom_model.dart';
 import '../models/category_model.dart';
+import '../models/work_model.dart';
 import '../widgets/loading_indicator.dart';
 
 class ChatBotSuggestionScreen extends StatefulWidget {
@@ -22,13 +24,20 @@ class ChatMessage {
   final ChatMessageType type;
   final String text;
   final List<FandomModel>? fandoms;
+  final List<WorkModel>? works;
 
-  ChatMessage({required this.type, required this.text, this.fandoms});
+  ChatMessage({
+    required this.type,
+    required this.text,
+    this.fandoms,
+    this.works,
+  });
 }
 
 class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   final CategoryRepository _categoryRepository = CategoryRepository();
   final FandomService _fandomService = FandomService();
+  final SearchService _searchService = SearchService();
   final ScrollController _scrollController = ScrollController();
   bool _isYesSelected = false;
   bool _isNoSelected = false;
@@ -42,7 +51,8 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   bool get _hasFandomMessage {
     return _chatMessages.any(
       (message) =>
-          message.type == ChatMessageType.bot && message.fandoms != null,
+          message.type == ChatMessageType.bot &&
+          (message.fandoms != null || message.works != null),
     );
   }
 
@@ -151,6 +161,63 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
             ChatMessage(
               type: ChatMessageType.bot,
               text: "Sorry, I couldn't load fandoms for this category.",
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _handleSendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _isLoadingFandoms) return;
+
+    // Clear text field
+    _messageController.clear();
+
+    // Add user message
+    setState(() {
+      _chatMessages.add(
+        ChatMessage(type: ChatMessageType.user, text: text.toLowerCase()),
+      );
+      _isLoadingFandoms = true;
+    });
+
+    // Scroll to show user message
+    _scrollToBottom();
+
+    try {
+      // Call search API to find works (same as search_screen.dart)
+      final searchResponse = await _searchService.searchWorks(text, page: 1);
+
+      if (mounted) {
+        setState(() {
+          // Add bot response with works
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text: searchResponse.works.isNotEmpty
+                  ? "Here are some stories I found for you:"
+                  : "Sorry, I couldn't find any stories for that search.",
+              works: searchResponse.works.isNotEmpty
+                  ? searchResponse.works.take(10).toList()
+                  : null,
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        // Scroll to show bot response
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text: "Sorry, I couldn't find any stories for that search.",
             ),
           );
           _isLoadingFandoms = false;
@@ -416,13 +483,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                         const SizedBox(width: 12),
                         // Send button
                         GestureDetector(
-                          onTap: () {
-                            final text = _messageController.text.trim();
-                            if (text.isNotEmpty) {
-                              // Handle send message
-                              _messageController.clear();
-                            }
-                          },
+                          onTap: () => _handleSendMessage(),
                           child: Container(
                             width: 44,
                             height: 44,
@@ -615,37 +676,116 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
               ),
               if (message.fandoms != null && message.fandoms!.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(
-                  'For example:',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                // Fandom options
                 ...message.fandoms!.map((fandom) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '- ${fandom.name}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () {
+                        // Handle fandom selection
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6B1FA6), // Darker purple
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          fandom.name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   );
                 }).toList(),
-                const SizedBox(height: 12),
-                Text(
-                  '(Type your response below ⌨️)',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
+                const SizedBox(height: 8),
+                // "None of them" option
+                InkWell(
+                  onTap: () {
+                    // Handle "None of them" selection
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6B1FA6), // Darker purple
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'None of them',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
+              ],
+              if (message.works != null && message.works!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                // Work options
+                ...message.works!.map((work) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () {
+                        // Handle work selection - navigate to work detail
+                        // You can implement navigation here
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6B1FA6), // Darker purple
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              work.title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (work.author.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                work.author,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ],
             ],
           ),
