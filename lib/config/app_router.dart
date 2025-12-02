@@ -11,6 +11,7 @@ import '../presentation/search_screen.dart';
 import '../presentation/settings_screen.dart';
 import '../presentation/app_initializer.dart';
 import '../presentation/read_story_screen.dart';
+import '../presentation/chatbot_suggestion_screen.dart';
 import '../models/work_content_model.dart';
 
 class AppRouter {
@@ -160,6 +161,11 @@ class AppRouter {
             allChapters: allChapters,
           );
         },
+      ),
+      // ChatBot Suggestion Screen (outside ShellRoute to hide bottom nav)
+      GoRoute(
+        path: '/chatbot-suggestion',
+        builder: (context, state) => const ChatBotSuggestionScreen(),
       ),
     ],
   );

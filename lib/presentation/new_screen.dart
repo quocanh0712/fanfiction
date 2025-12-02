@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/app_header.dart';
 import '../repositories/new_works_repository.dart';
 import '../widgets/work_item.dart';
@@ -22,7 +23,13 @@ class _NewScreenState extends State<NewScreen> {
       color: const Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(title: 'News', isHaveIcon: false),
+          AppHeader(
+            title: 'News',
+            isHaveIcon: false,
+            onLeftIconTap: () {
+              context.push('/chatbot-suggestion');
+            },
+          ),
           Expanded(child: _buildBody()),
         ],
       ),

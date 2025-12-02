@@ -22,7 +22,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
       color: Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(title: "Categories", isHaveIcon: false),
+          AppHeader(
+            title: "Categories",
+            isHaveIcon: false,
+            onLeftIconTap: () {
+              context.push('/chatbot-suggestion');
+            },
+          ),
           Expanded(child: _buildBody()),
         ],
       ),

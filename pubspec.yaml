@@ -58,6 +58,9 @@ dependencies:
   
   # App version info
   package_info_plus: ^8.1.1
+  
+  # URL launcher for opening links and emails
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

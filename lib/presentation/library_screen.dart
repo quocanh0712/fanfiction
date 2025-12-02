@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/app_header.dart';
 import '../services/saved_works_service.dart';
 import '../models/work_model.dart';
@@ -228,6 +229,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           AppHeader(
             onSearchChanged: _filterWorks,
             searchHint: 'Search works, tags...',
+            onLeftIconTap: () {
+              context.push('/chatbot-suggestion');
+            },
           ),
 
           // Content

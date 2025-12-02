@@ -172,7 +172,13 @@ class _SearchScreenState extends State<SearchScreen> {
       color: const Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(title: 'Search', isHaveIcon: false),
+          AppHeader(
+            title: 'Search',
+            isHaveIcon: false,
+            onLeftIconTap: () {
+              context.push('/chatbot-suggestion');
+            },
+          ),
           // Animated search input - moves to top when has query
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),

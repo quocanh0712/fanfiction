@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/app_header.dart';
 import '../services/saved_works_service.dart';
 import '../services/app_preferences_service.dart';
@@ -387,7 +389,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       color: const Color(0xFF121212),
       child: Column(
         children: [
-          const AppHeader(title: 'Setting', isHaveIcon: false),
+          AppHeader(
+            title: 'Setting',
+            isHaveIcon: false,
+            onLeftIconTap: () {
+              context.push('/chatbot-suggestion');
+            },
+          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -490,25 +498,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _buildMenuItem(
           iconPath: 'assets/ic_fanfiction/ic_policy.svg',
           title: 'Privacy Policy',
-          onTap: () {},
+          onTap: () => _openPrivacyPolicy(),
         ),
         _buildDivider(),
         _buildMenuItem(
           iconPath: 'assets/ic_fanfiction/ic_term.svg',
           title: 'Terms & Conditions',
-          onTap: () {},
+          onTap: () => _openTermsOfUse(),
         ),
         _buildDivider(),
         _buildMenuItem(
           iconPath: 'assets/ic_fanfiction/ic_request_feature.svg',
           title: 'Request A Feature',
-          onTap: () {},
+          onTap: () => _openEmail(subject: 'Request A Feature'),
         ),
         _buildDivider(),
         _buildMenuItem(
           iconPath: 'assets/ic_fanfiction/ic_report.svg',
           title: 'Report A Bug',
-          onTap: () {},
+          onTap: () => _openEmail(subject: 'Report A Bug'),
         ),
         _buildDivider(),
         // _buildMenuItem(
@@ -524,6 +532,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // ),
       ],
     );
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    final url = Uri.parse('https://sites.google.com/view/aaaooo3/home');
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open Privacy Policy'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening Privacy Policy: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openTermsOfUse() async {
+    final url = Uri.parse('https://sites.google.com/view/aaaooo3/terms-of-use');
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open Terms of Use'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening Terms of Use: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openEmail({required String subject}) async {
+    final email = 'frovrio@gmail.com';
+    final uri = Uri(
+      scheme: 'mailto',
+      path: email,
+      queryParameters: {'subject': subject},
+    );
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open email client'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening email: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMenuItem({
