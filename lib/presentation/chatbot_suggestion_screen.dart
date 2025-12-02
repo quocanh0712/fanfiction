@@ -3,6 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
+import '../services/fandom_service.dart';
+import '../models/fandom_model.dart';
+import '../models/category_model.dart';
 import '../widgets/loading_indicator.dart';
 
 class ChatBotSuggestionScreen extends StatefulWidget {
@@ -13,13 +16,26 @@ class ChatBotSuggestionScreen extends StatefulWidget {
       _ChatBotSuggestionScreenState();
 }
 
+enum ChatMessageType { user, bot }
+
+class ChatMessage {
+  final ChatMessageType type;
+  final String text;
+  final List<FandomModel>? fandoms;
+
+  ChatMessage({required this.type, required this.text, this.fandoms});
+}
+
 class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   final CategoryRepository _categoryRepository = CategoryRepository();
+  final FandomService _fandomService = FandomService();
   final ScrollController _scrollController = ScrollController();
   bool _isYesSelected = false;
   bool _isNoSelected = false;
   bool _isButtonsDisabled = false;
   bool _isLoadingCategories = false;
+  List<ChatMessage> _chatMessages = [];
+  bool _isLoadingFandoms = false;
 
   @override
   void dispose() {
@@ -71,6 +87,62 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
       _isYesSelected = false;
       _isButtonsDisabled = true;
     });
+  }
+
+  Future<void> _handleCategoryTap(CategoryModel category) async {
+    if (_isLoadingFandoms) return;
+
+    // Add user message
+    setState(() {
+      _chatMessages.add(
+        ChatMessage(
+          type: ChatMessageType.user,
+          text: "I'm into ${category.name}",
+        ),
+      );
+      _isLoadingFandoms = true;
+    });
+
+    // Scroll to show user message
+    _scrollToBottom();
+
+    try {
+      // Get fandoms for this category
+      final fandoms = await _fandomService.getFandomsByCategory(category.id);
+
+      // Take first 3 fandoms as examples
+      final exampleFandoms = fandoms.take(3).toList();
+
+      if (mounted) {
+        setState(() {
+          // Add bot response with fandoms
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text:
+                  "Cool, what are your favorite ${category.name.toLowerCase()} fandoms?",
+              fandoms: exampleFandoms,
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        // Scroll to show bot response
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text: "Sorry, I couldn't load fandoms for this category.",
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
   @override
@@ -239,6 +311,23 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                           const SizedBox(height: 15),
                           _buildCategoriesSection(),
                         ],
+                        // Chat messages section
+                        if (_chatMessages.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          ..._chatMessages.map(
+                            (message) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildChatMessage(message),
+                            ),
+                          ),
+                        ],
+                        // Loading indicator for fandoms
+                        if (_isLoadingFandoms) ...[
+                          const SizedBox(height: 16),
+                          const Center(
+                            child: LoadingIndicator(color: Color(0xFF7d26cd)),
+                          ),
+                        ],
                         const SizedBox(height: 15),
                       ],
                     ),
@@ -340,9 +429,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                 children: [
                   // Category item
                   InkWell(
-                    onTap: () {
-                      // Handle category tap if needed
-                    },
+                    onTap: () => _handleCategoryTap(category),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -374,5 +461,102 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildChatMessage(ChatMessage message) {
+    if (message.type == ChatMessageType.user) {
+      // User message - right side, pink/magenta color
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE91E63), // Pink/magenta
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+              bottomLeft: Radius.circular(20),
+            ),
+          ),
+          child: Text(
+            message.text,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    } else {
+      // Bot message - left side, purple color
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+          ),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7d26cd),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+              bottomRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.text,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
+              ),
+              if (message.fandoms != null && message.fandoms!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'For example:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...message.fandoms!.map((fandom) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '- ${fandom.name}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 12),
+                Text(
+                  '(Type your response below',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text('⌨️', style: TextStyle(fontSize: 16)),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
   }
 }
