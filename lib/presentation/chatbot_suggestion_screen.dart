@@ -36,10 +36,20 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   bool _isLoadingCategories = false;
   List<ChatMessage> _chatMessages = [];
   bool _isLoadingFandoms = false;
+  String? _selectedCategoryId;
+  final TextEditingController _messageController = TextEditingController();
+
+  bool get _hasFandomMessage {
+    return _chatMessages.any(
+      (message) =>
+          message.type == ChatMessageType.bot && message.fandoms != null,
+    );
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
@@ -91,6 +101,11 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
 
   Future<void> _handleCategoryTap(CategoryModel category) async {
     if (_isLoadingFandoms) return;
+
+    // Set selected category
+    setState(() {
+      _selectedCategoryId = category.id;
+    });
 
     // Add user message
     setState(() {
@@ -157,7 +172,11 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      bottom: _hasFandomMessage ? 80 : 15,
+                    ),
                     child: Column(
                       children: [
                         // Spacer to push content to bottom initially
@@ -350,6 +369,79 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                 ),
               ),
             ),
+            // Input field and send button at bottom
+            if (_hasFandomMessage)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Container(
+                    color: const Color(0xFF121212),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        // Text field
+                        Expanded(
+                          child: Container(
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF343A40),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Type your response...',
+                                hintStyle: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.white.withOpacity(0.5),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Send button
+                        GestureDetector(
+                          onTap: () {
+                            final text = _messageController.text.trim();
+                            if (text.isNotEmpty) {
+                              // Handle send message
+                              _messageController.clear();
+                            }
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.send,
+                              color: const Color(0xFFA0A0A0),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -443,7 +535,11 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
-                                color: Colors.white,
+                                color:
+                                    _selectedCategoryId == null ||
+                                        _selectedCategoryId == category.id
+                                    ? Colors.white
+                                    : Colors.grey,
                               ),
                             ),
                           ),
@@ -535,7 +631,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                       '- ${fandom.name}',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        fontWeight: FontWeight.w400,
+                        fontWeight: FontWeight.w500,
                         color: Colors.white,
                       ),
                     ),
@@ -543,15 +639,13 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                 }).toList(),
                 const SizedBox(height: 12),
                 Text(
-                  '(Type your response below',
+                  '(Type your response below ⌨️)',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text('⌨️', style: TextStyle(fontSize: 16)),
               ],
             ],
           ),
