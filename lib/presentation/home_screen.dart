@@ -82,8 +82,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final isSelected = widget.selectedIndex == index;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: () => context.go(_navItems[index].route),
+      child: InkWell(
+        onTap: () {
+          if (!isSelected) {
+            context.go(_navItems[index].route);
+          }
+        },
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Container(
           decoration: isSelected
               ? BoxDecoration(
