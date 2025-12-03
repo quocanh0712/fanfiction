@@ -397,6 +397,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
     return Material(
       color: const Color(0xFF121212),
       child: SafeArea(
+        top: false,
         child: Stack(
           children: [
             Column(
@@ -596,9 +597,11 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
               right: 20,
               child: SafeArea(
                 child: Container(
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.white12,
                   ),
                   child: IconButton(
                     icon: const Icon(
@@ -607,7 +610,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                       size: 24,
                     ),
                     onPressed: () {
-                      context.pop();
+                      _handleNoneOfThem();
                     },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
