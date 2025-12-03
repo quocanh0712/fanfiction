@@ -6,6 +6,7 @@ import '../repositories/category_repository.dart';
 import '../services/fandom_service.dart';
 import '../services/search_service.dart';
 import '../services/saved_works_service.dart';
+import '../services/work_service.dart';
 import '../models/fandom_model.dart';
 import '../models/category_model.dart';
 import '../models/work_model.dart';
@@ -40,6 +41,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   final FandomService _fandomService = FandomService();
   final SearchService _searchService = SearchService();
   final SavedWorksService _savedWorksService = SavedWorksService();
+  final WorkService _workService = WorkService();
   final ScrollController _scrollController = ScrollController();
   bool _isYesSelected = false;
   bool _isNoSelected = false;
@@ -57,6 +59,17 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
           message.type == ChatMessageType.bot &&
           (message.fandoms != null || message.works != null),
     );
+  }
+
+  /// Filter out fandoms that contain arrow characters
+  List<FandomModel> _filterFandomsWithArrows(List<FandomModel> fandoms) {
+    // Common arrow characters (Unicode ranges)
+    final arrowPattern = RegExp(
+      r'[\u2190-\u2199\u21A0-\u21A9\u21B0-\u21B9\u21D0-\u21D9\u21E0-\u21E9\u2B00-\u2BFF\u27A0-\u27BF]',
+    );
+    return fandoms
+        .where((fandom) => !arrowPattern.hasMatch(fandom.name))
+        .toList();
   }
 
   @override
@@ -138,8 +151,11 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
       // Get fandoms for this category
       final fandoms = await _fandomService.getFandomsByCategory(category.id);
 
+      // Filter out fandoms with arrow characters
+      final filteredFandoms = _filterFandomsWithArrows(fandoms);
+
       // Take first 3 fandoms as examples
-      final exampleFandoms = fandoms.take(3).toList();
+      final exampleFandoms = filteredFandoms.take(3).toList();
 
       if (mounted) {
         setState(() {
@@ -226,6 +242,137 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
           _isLoadingFandoms = false;
         });
         _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _handleFandomTap(FandomModel fandom) async {
+    if (_isLoadingFandoms) return;
+
+    // Add user message
+    setState(() {
+      _chatMessages.add(
+        ChatMessage(type: ChatMessageType.user, text: fandom.name),
+      );
+      _isLoadingFandoms = true;
+    });
+
+    // Scroll to show user message
+    _scrollToBottom();
+
+    try {
+      // Get works for this fandom
+      final works = await _workService.getWorksByFandom(fandom.id);
+
+      if (mounted) {
+        setState(() {
+          // Add bot response with works
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text: works.isNotEmpty
+                  ? "Here are some stories from ${fandom.name}:"
+                  : "Sorry, I couldn't find any stories for ${fandom.name}.",
+              works: works.isNotEmpty ? works.take(10).toList() : null,
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        // Scroll to show bot response
+        _scrollToBottom();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _chatMessages.add(
+            ChatMessage(
+              type: ChatMessageType.bot,
+              text: "Sorry, I couldn't load stories for ${fandom.name}.",
+            ),
+          );
+          _isLoadingFandoms = false;
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Future<void> _handleNoneOfThem() async {
+    // Add bot message
+    setState(() {
+      _chatMessages.add(
+        ChatMessage(
+          type: ChatMessageType.bot,
+          text: "See you, I'll be right here if you need me.",
+        ),
+      );
+    });
+
+    // Scroll to show message
+    _scrollToBottom();
+
+    // Wait 1.5 seconds then pop
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (mounted) {
+      context.pop();
+    }
+  }
+
+  Future<void> _handleWorkSelection(WorkModel work) async {
+    // Check if already saving
+    if (_savingWorkIds.contains(work.id)) return;
+
+    // Add to saving set
+    setState(() {
+      _savingWorkIds.add(work.id);
+    });
+
+    try {
+      // Save work to library
+      print('💾 Saving work to library: ${work.id} - ${work.title}');
+      final success = await _savedWorksService.saveWork(work);
+      print('💾 Save result: $success');
+
+      // Verify the work was saved
+      final isSaved = await _savedWorksService.isWorkSaved(work.id);
+      print('💾 Work is saved: $isSaved');
+
+      if (mounted) {
+        // Show SnackBar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success
+                  ? 'Story added to library'
+                  : 'Failed to add story to library',
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.white),
+            ),
+            backgroundColor: success ? const Color(0xFF7d26cd) : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        // Add bot message with confirmation and question
+        if (success) {
+          setState(() {
+            _chatMessages.add(
+              ChatMessage(
+                type: ChatMessageType.bot,
+                text:
+                    "Great! I've saved \"${work.title}\" to your library. Would you like to find another story?",
+              ),
+            );
+          });
+          // Scroll to show bot message
+          _scrollToBottom();
+        }
+      }
+    } finally {
+      // Remove from saving set
+      if (mounted) {
+        setState(() {
+          _savingWorkIds.remove(work.id);
+        });
       }
     }
   }
@@ -684,9 +831,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: () {
-                        // Handle fandom selection
-                      },
+                      onTap: () => _handleFandomTap(fandom),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -712,9 +857,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                 const SizedBox(height: 8),
                 // "None of them" option
                 InkWell(
-                  onTap: () {
-                    // Handle "None of them" selection
-                  },
+                  onTap: _handleNoneOfThem,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -753,59 +896,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: isSaving
-                          ? null
-                          : () async {
-                              // Check if already saving
-                              if (_savingWorkIds.contains(work.id)) return;
-
-                              // Add to saving set
-                              setState(() {
-                                _savingWorkIds.add(work.id);
-                              });
-
-                              try {
-                                // Save work to library
-                                print(
-                                  '💾 Saving work to library: ${work.id} - ${work.title}',
-                                );
-                                final success = await _savedWorksService
-                                    .saveWork(work);
-                                print('💾 Save result: $success');
-
-                                // Verify the work was saved
-                                final isSaved = await _savedWorksService
-                                    .isWorkSaved(work.id);
-                                print('💾 Work is saved: $isSaved');
-
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        success
-                                            ? 'Story added to library'
-                                            : 'Failed to add story to library',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      backgroundColor: success
-                                          ? const Color(0xFF7d26cd)
-                                          : Colors.red,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              } finally {
-                                // Remove from saving set
-                                if (mounted) {
-                                  setState(() {
-                                    _savingWorkIds.remove(work.id);
-                                  });
-                                }
-                              }
-                            },
+                      onTap: isSaving ? null : () => _handleWorkSelection(work),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
