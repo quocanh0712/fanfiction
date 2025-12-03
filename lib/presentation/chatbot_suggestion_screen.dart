@@ -52,6 +52,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   String? _selectedCategoryId;
   final TextEditingController _messageController = TextEditingController();
   final Set<String> _savingWorkIds = {}; // Track works being saved
+  bool _hasText = false; // Track if text field has content
 
   bool get _hasFandomMessage {
     return _chatMessages.any(
@@ -70,6 +71,17 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
     return fandoms
         .where((fandom) => !arrowPattern.hasMatch(fandom.name))
         .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to text changes
+    _messageController.addListener(() {
+      setState(() {
+        _hasText = _messageController.text.trim().isNotEmpty;
+      });
+    });
   }
 
   @override
@@ -113,16 +125,6 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
       // Scroll to bottom after categories are loaded
       _scrollToBottom();
     }
-  }
-
-  void _handleNoTap() {
-    if (_isButtonsDisabled) return;
-
-    setState(() {
-      _isNoSelected = true;
-      _isYesSelected = false;
-      _isButtonsDisabled = true;
-    });
   }
 
   Future<void> _handleCategoryTap(CategoryModel category) async {
@@ -295,6 +297,19 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
         _scrollToBottom();
       }
     }
+  }
+
+  Future<void> _handleNoTap() async {
+    if (_isButtonsDisabled) return;
+
+    setState(() {
+      _isNoSelected = true;
+      _isYesSelected = false;
+      _isButtonsDisabled = true;
+    });
+
+    // Call _handleNoneOfThem to show message and pop
+    await _handleNoneOfThem();
   }
 
   Future<void> _handleNoneOfThem() async {
@@ -491,8 +506,10 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                                           ? null
                                           : _handleYesTap,
                                       child: Container(
+                                        width: double.infinity,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
+                                          vertical: 12,
                                         ),
                                         child: Text(
                                           'Yes',
@@ -520,8 +537,10 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                                           ? null
                                           : _handleNoTap,
                                       child: Container(
+                                        width: double.infinity,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 16,
+                                          vertical: 12,
                                         ),
                                         child: Text(
                                           'No',
@@ -576,13 +595,23 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
               top: 0,
               right: 20,
               child: SafeArea(
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 24),
-                  onPressed: () {
-                    context.pop();
-                  },
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.5),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      context.pop();
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
               ),
             ),
@@ -643,7 +672,9 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                             ),
                             child: Icon(
                               Icons.send,
-                              color: const Color(0xFFA0A0A0),
+                              color: _hasText
+                                  ? const Color(0xFF7d26cd)
+                                  : const Color(0xFFA0A0A0),
                               size: 24,
                             ),
                           ),
