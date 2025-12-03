@@ -36,7 +36,8 @@ class ChatMessage {
   });
 }
 
-class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
+class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen>
+    with TickerProviderStateMixin {
   final CategoryRepository _categoryRepository = CategoryRepository();
   final FandomService _fandomService = FandomService();
   final SearchService _searchService = SearchService();
@@ -53,6 +54,9 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   final TextEditingController _messageController = TextEditingController();
   final Set<String> _savingWorkIds = {}; // Track works being saved
   bool _hasText = false; // Track if text field has content
+  final Map<int, AnimationController> _messageAnimations = {};
+  AnimationController? _firstMessageAnimation;
+  AnimationController? _secondMessageAnimation;
 
   bool get _hasFandomMessage {
     return _chatMessages.any(
@@ -82,12 +86,38 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
         _hasText = _messageController.text.trim().isNotEmpty;
       });
     });
+    // Initialize animations for initial messages
+    _firstMessageAnimation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _secondMessageAnimation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    // Start animations with delay
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _firstMessageAnimation?.forward();
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        _secondMessageAnimation?.forward();
+      }
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _messageController.dispose();
+    _firstMessageAnimation?.dispose();
+    _secondMessageAnimation?.dispose();
+    for (var controller in _messageAnimations.values) {
+      controller.dispose();
+    }
+    _messageAnimations.clear();
     super.dispose();
   }
 
@@ -449,116 +479,155 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // First message bubble
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF7d26cd),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(20),
-                                    topRight: Radius.circular(20),
-                                    bottomRight: Radius.circular(20),
+                              if (_firstMessageAnimation != null)
+                                FadeTransition(
+                                  opacity: _firstMessageAnimation!,
+                                  child: SlideTransition(
+                                    position:
+                                        Tween<Offset>(
+                                          begin: const Offset(0, 0.3),
+                                          end: Offset.zero,
+                                        ).animate(
+                                          CurvedAnimation(
+                                            parent: _firstMessageAnimation!,
+                                            curve: Curves.easeOut,
+                                          ),
+                                        ),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7d26cd),
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(20),
+                                          topRight: Radius.circular(20),
+                                          bottomRight: Radius.circular(20),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Hiya, and welcome to Fanfiction AO3 Reader',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.white,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  'Hiya, and welcome to Fanfiction AO3 Reader',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
                               const SizedBox(height: 16),
                               // Second message bubble with options
-                              Container(
-                                width: 335,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF7d26cd),
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(20),
-                                    topRight: Radius.circular(20),
-                                    bottomRight: Radius.circular(20),
+                              if (_secondMessageAnimation != null)
+                                FadeTransition(
+                                  opacity: _secondMessageAnimation!,
+                                  child: SlideTransition(
+                                    position:
+                                        Tween<Offset>(
+                                          begin: const Offset(0, 0.3),
+                                          end: Offset.zero,
+                                        ).animate(
+                                          CurvedAnimation(
+                                            parent: _secondMessageAnimation!,
+                                            curve: Curves.easeOut,
+                                          ),
+                                        ),
+                                    child: Container(
+                                      width: 335,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7d26cd),
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(20),
+                                          topRight: Radius.circular(20),
+                                          bottomRight: Radius.circular(20),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'I can help you find some good stories 😊. Would you like to continue?',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          // Divider
+                                          Container(
+                                            height: 1,
+                                            color: Colors.white.withOpacity(
+                                              0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 15),
+                                          // Yes option
+                                          GestureDetector(
+                                            onTap: _isButtonsDisabled
+                                                ? null
+                                                : _handleYesTap,
+                                            child: Container(
+                                              width: double.infinity,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 12,
+                                                  ),
+                                              child: Text(
+                                                'Yes',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: _isNoSelected
+                                                      ? Colors.grey
+                                                      : Colors.white,
+                                                  height: 1.0,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 15),
+                                          // Divider
+                                          Container(
+                                            height: 1,
+                                            color: Colors.white.withOpacity(
+                                              0.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 15),
+                                          // No option
+                                          GestureDetector(
+                                            onTap: _isButtonsDisabled
+                                                ? null
+                                                : _handleNoTap,
+                                            child: Container(
+                                              width: double.infinity,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 12,
+                                                  ),
+                                              child: Text(
+                                                'No',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w400,
+                                                  color: _isYesSelected
+                                                      ? Colors.grey
+                                                      : Colors.white,
+                                                  height: 1.0,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'I can help you find some good stories 😊. Would you like to continue?',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    // Divider
-                                    Container(
-                                      height: 1,
-                                      color: Colors.white.withOpacity(0.3),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    // Yes option
-                                    GestureDetector(
-                                      onTap: _isButtonsDisabled
-                                          ? null
-                                          : _handleYesTap,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        child: Text(
-                                          'Yes',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w400,
-                                            color: _isNoSelected
-                                                ? Colors.grey
-                                                : Colors.white,
-                                            height: 1.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    // Divider
-                                    Container(
-                                      height: 1,
-                                      color: Colors.white.withOpacity(0.3),
-                                    ),
-                                    const SizedBox(height: 15),
-                                    // No option
-                                    GestureDetector(
-                                      onTap: _isButtonsDisabled
-                                          ? null
-                                          : _handleNoTap,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                        child: Text(
-                                          'No',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w400,
-                                            color: _isYesSelected
-                                                ? Colors.grey
-                                                : Colors.white,
-                                            height: 1.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -570,12 +639,35 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                         // Chat messages section
                         if (_chatMessages.isNotEmpty) ...[
                           const SizedBox(height: 20),
-                          ..._chatMessages.map(
-                            (message) => Padding(
+                          ..._chatMessages.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final message = entry.value;
+                            // Create animation controller for this message if not exists
+                            if (!_messageAnimations.containsKey(index)) {
+                              final controller = AnimationController(
+                                vsync: this,
+                                duration: const Duration(milliseconds: 400),
+                              );
+                              _messageAnimations[index] = controller;
+                              // Start animation with delay based on index
+                              Future.delayed(
+                                Duration(milliseconds: 100 * index),
+                                () {
+                                  if (mounted &&
+                                      _messageAnimations.containsKey(index)) {
+                                    _messageAnimations[index]?.forward();
+                                  }
+                                },
+                              );
+                            }
+                            return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildChatMessage(message),
-                            ),
-                          ),
+                              child: _buildChatMessage(
+                                message,
+                                animation: _messageAnimations[index],
+                              ),
+                            );
+                          }),
                         ],
                         // Loading indicator for fandoms
                         if (_isLoadingFandoms) ...[
@@ -804,10 +896,14 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
     );
   }
 
-  Widget _buildChatMessage(ChatMessage message) {
+  Widget _buildChatMessage(
+    ChatMessage message, {
+    AnimationController? animation,
+  }) {
+    Widget messageWidget;
     if (message.type == ChatMessageType.user) {
       // User message - right side, pink/magenta color
-      return Align(
+      messageWidget = Align(
         alignment: Alignment.centerRight,
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -831,7 +927,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
       );
     } else {
       // Bot message - left side, purple color
-      return Align(
+      messageWidget = Align(
         alignment: Alignment.centerLeft,
         child: Container(
           constraints: BoxConstraints(
@@ -1004,5 +1100,23 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
         ),
       );
     }
+
+    // Wrap with animation if available
+    if (animation != null) {
+      return FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: message.type == ChatMessageType.user
+                ? const Offset(0.3, 0)
+                : const Offset(-0.3, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: messageWidget,
+        ),
+      );
+    }
+
+    return messageWidget;
   }
 }

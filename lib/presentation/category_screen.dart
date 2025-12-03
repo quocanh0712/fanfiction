@@ -127,11 +127,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       onRefresh: _loadCategories,
       color: const Color(0xFF7d26cd),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
         physics: const AlwaysScrollableScrollPhysics(),
         child: Wrap(
-          spacing: 8,
-          runSpacing: 15,
+          spacing: 5,
+          runSpacing: 20,
           alignment: WrapAlignment.center,
           children: categories.map((category) {
             return _buildCategoryChip(category);
