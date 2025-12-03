@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../repositories/category_repository.dart';
 import '../services/fandom_service.dart';
 import '../services/search_service.dart';
+import '../services/saved_works_service.dart';
 import '../models/fandom_model.dart';
 import '../models/category_model.dart';
 import '../models/work_model.dart';
@@ -38,6 +39,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   final CategoryRepository _categoryRepository = CategoryRepository();
   final FandomService _fandomService = FandomService();
   final SearchService _searchService = SearchService();
+  final SavedWorksService _savedWorksService = SavedWorksService();
   final ScrollController _scrollController = ScrollController();
   bool _isYesSelected = false;
   bool _isNoSelected = false;
@@ -47,6 +49,7 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
   bool _isLoadingFandoms = false;
   String? _selectedCategoryId;
   final TextEditingController _messageController = TextEditingController();
+  final Set<String> _savingWorkIds = {}; // Track works being saved
 
   bool get _hasFandomMessage {
     return _chatMessages.any(
@@ -732,18 +735,77 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  '(Type your response below ⌨️)',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
               ],
               if (message.works != null && message.works!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 // Work options
                 ...message.works!.map((work) {
+                  final isSaving = _savingWorkIds.contains(work.id);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: () {
-                        // Handle work selection - navigate to work detail
-                        // You can implement navigation here
-                      },
+                      onTap: isSaving
+                          ? null
+                          : () async {
+                              // Check if already saving
+                              if (_savingWorkIds.contains(work.id)) return;
+
+                              // Add to saving set
+                              setState(() {
+                                _savingWorkIds.add(work.id);
+                              });
+
+                              try {
+                                // Save work to library
+                                print(
+                                  '💾 Saving work to library: ${work.id} - ${work.title}',
+                                );
+                                final success = await _savedWorksService
+                                    .saveWork(work);
+                                print('💾 Save result: $success');
+
+                                // Verify the work was saved
+                                final isSaved = await _savedWorksService
+                                    .isWorkSaved(work.id);
+                                print('💾 Work is saved: $isSaved');
+
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        success
+                                            ? 'Story added to library'
+                                            : 'Failed to add story to library',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      backgroundColor: success
+                                          ? const Color(0xFF7d26cd)
+                                          : Colors.red,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                // Remove from saving set
+                                if (mounted) {
+                                  setState(() {
+                                    _savingWorkIds.remove(work.id);
+                                  });
+                                }
+                              }
+                            },
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -751,33 +813,58 @@ class _ChatBotSuggestionScreenState extends State<ChatBotSuggestionScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6B1FA6), // Darker purple
+                          color: isSaving
+                              ? const Color(0xFF6B1FA6).withOpacity(0.6)
+                              : const Color(0xFF6B1FA6), // Darker purple
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              work.title,
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    work.title,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSaving
+                                          ? Colors.white.withOpacity(0.7)
+                                          : Colors.white,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (work.author.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      work.author,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        color: isSaving
+                                            ? Colors.white.withOpacity(0.5)
+                                            : Colors.white.withOpacity(0.7),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            if (work.author.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                work.author,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.white.withOpacity(0.7),
+                            if (isSaving) ...[
+                              const SizedBox(width: 12),
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ],

@@ -14,7 +14,8 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> {
+class _LibraryScreenState extends State<LibraryScreen>
+    with WidgetsBindingObserver {
   final SavedWorksService _savedWorksService = SavedWorksService();
   List<WorkModel> _savedWorks = [];
   List<WorkModel> _filteredWorks = [];
@@ -22,14 +23,54 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final Map<String, bool> _expandedTags = {};
   String _searchQuery = '';
   GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  bool _hasLoadedOnce = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSavedWorks(isInitialLoad: true);
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Reload when app comes back to foreground
+    if (state == AppLifecycleState.resumed && _hasLoadedOnce) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _loadSavedWorks(isInitialLoad: false);
+        }
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload works when screen becomes visible again
+    // This helps refresh the list when navigating back from other screens
+    // Only reload if we've already loaded once (to avoid reloading on first build)
+    if (_hasLoadedOnce) {
+      // Use a small delay to ensure SharedPreferences has been updated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _loadSavedWorks(isInitialLoad: false);
+          }
+        });
+      });
+    }
+  }
+
   Future<void> _loadSavedWorks({bool isInitialLoad = false}) async {
+    print('📚 _loadSavedWorks called (isInitialLoad: $isInitialLoad)');
     if (isInitialLoad) {
       setState(() {
         _isLoading = true;
@@ -39,11 +80,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     try {
       final savedWorks = await _savedWorksService.getSavedWorks();
+      print('📚 Loaded ${savedWorks.length} saved works');
       if (mounted) {
         setState(() {
           _savedWorks = savedWorks;
           _filteredWorks = savedWorks;
           _isLoading = false;
+          _hasLoadedOnce = true; // Mark that we've loaded at least once
           // Force rebuild AnimatedList on reload by creating new key
           if (!isInitialLoad) {
             _listKey = GlobalKey<AnimatedListState>();
@@ -52,6 +95,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _filterWorks(_searchQuery);
       }
     } catch (e) {
+      print('❌ Error loading saved works: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -229,8 +273,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
           AppHeader(
             onSearchChanged: _filterWorks,
             searchHint: 'Search works, tags...',
-            onLeftIconTap: () {
-              context.push('/chatbot-suggestion');
+            onLeftIconTap: () async {
+              // Push to chatbot suggestion screen
+              await context.push('/chatbot-suggestion');
+              // Reload works when returning from chatbot screen
+              if (mounted && _hasLoadedOnce) {
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  if (mounted) {
+                    _loadSavedWorks(isInitialLoad: false);
+                  }
+                });
+              }
             },
           ),
 
