@@ -535,7 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openPrivacyPolicy() async {
-    final url = Uri.parse('https://sites.google.com/view/aaaooo3/home');
+    final url = Uri.parse('https://sites.google.com/view/fanficc/home');
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -562,7 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openTermsOfUse() async {
-    final url = Uri.parse('https://sites.google.com/view/aaaooo3/terms-of-use');
+    final url = Uri.parse('https://sites.google.com/view/fanficc/terms-of-use');
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);

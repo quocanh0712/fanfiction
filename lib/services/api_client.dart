@@ -8,7 +8,7 @@ class ApiClient {
   ApiClient._internal();
 
   late Dio _dio;
-  static const String baseUrl = 'https://fandom-gg.onrender.com';
+  static const String baseUrl = 'https://fanfiction.loadingpleasewait.online';
 
   Dio get dio => _dio;
 
